@@ -24,3 +24,7 @@ do
     fi
     mv $output_name build/
 done
+
+cd build
+
+shasum -a 256 * > checksum.txt

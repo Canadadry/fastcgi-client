@@ -3,6 +3,7 @@ package main
 import (
 	"app/cmd/client"
 	"app/cmd/server"
+	"app/cmd/sniff"
 	"fmt"
 	"os"
 	"strings"
@@ -19,6 +20,7 @@ func run() error {
 	actions := map[string]func([]string) error{
 		server.Action: server.Run,
 		client.Action: client.Run,
+		sniff.Action:  sniff.Run,
 	}
 
 	if len(os.Args) <= 1 {
