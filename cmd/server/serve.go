@@ -8,7 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -39,7 +39,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	var scriptName string
 
 	if r.Method == "POST" {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		reqParams = string(body)
 	}
 
