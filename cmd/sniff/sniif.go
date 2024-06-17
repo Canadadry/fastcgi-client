@@ -2,7 +2,6 @@ package sniff
 
 import (
 	"app/fcgiclient"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -100,23 +99,27 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 		}
 
 		log.Printf("reading from php-fpm")
-		response, err := readFromConn(serverConn)
+		resps, err := readFullResponse(serverConn)
 		if err != nil {
-			if err != io.EOF {
-				log.Fatalf("Error reading response from server: %v", err)
-			}
+			log.Fatalf("cannot read response: %v", err)
 			break
 		}
-
-		log.Println("Responses", base64.StdEncoding.EncodeToString(response))
+		jsonRsps, err := json.Marshal(resps)
+		if err != nil {
+			log.Fatalf("cannot encode response to json: %v", err)
+			break
+		}
+		log.Println("Response", string(jsonRsps))
 
 		log.Printf("writting back to tcp client")
-		_, err = clientConn.Write(response)
-		if err != nil {
-			log.Fatalf("Error sending response to client: %v", err)
-			break
+		for _, r := range resps {
+			if err := binary.Write(clientConn, binary.BigEndian, r.Header); err != nil {
+				log.Fatalf("Error sending response header to server: %v", err)
+			}
+			if _, err := clientConn.Write(r.Buf); err != nil {
+				log.Fatalf("Error sending response content to server: %v", err)
+			}
 		}
-
 	}
 }
 
@@ -145,6 +148,27 @@ func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
 	return reccords, nil
 }
 
+func readFullResponse(r io.Reader) ([]fcgiclient.Record, error) {
+	reccords := make([]fcgiclient.Record, 0, 3)
+
+	// recive untill EOF or FCGI_END_REQUEST
+	for {
+		rec := fcgiclient.Record{}
+		err := rec.Read(r)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		reccords = append(reccords, rec)
+		if err == io.EOF {
+			break
+		}
+		if rec.Header.Type == fcgiclient.FCGI_END_REQUEST {
+			break
+		}
+	}
+
+	return reccords, nil
+}
 func readFromConn(conn net.Conn) ([]byte, error) {
 	buf := make([]byte, 4096)
 	var data []byte
