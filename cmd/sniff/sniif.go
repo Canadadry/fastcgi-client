@@ -88,6 +88,7 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 			}
 			break
 		}
+		log.Println("Requests", base64.StdEncoding.EncodeToString(request))
 
 		log.Printf("writing to php-fpm")
 		_, err = serverConn.Write(request)
@@ -105,6 +106,8 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 			break
 		}
 
+		log.Println("Responses", base64.StdEncoding.EncodeToString(response))
+
 		log.Printf("writting back to tcp client")
 		_, err = clientConn.Write(response)
 		if err != nil {
@@ -112,8 +115,6 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 			break
 		}
 
-		log.Println("Requests", base64.StdEncoding.EncodeToString(request))
-		log.Println("Responses", base64.StdEncoding.EncodeToString(response))
 	}
 }
 
