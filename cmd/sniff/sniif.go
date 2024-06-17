@@ -1,15 +1,16 @@
 package sniff
 
 import (
+	"app/fcgiclient"
 	"encoding/base64"
-	"errors"
+	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"sync"
-	"syscall"
 )
 
 const Action = "sniff"
@@ -76,25 +77,26 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 	log.Printf("connected to php-fpm")
 
 	for {
-		log.Printf("reading from tcp client")
-		request, err := readFromConn(clientConn)
+		reqs, err := readFullRequest(clientConn)
 		if err != nil {
-			if errors.Is(err, syscall.ECONNRESET) {
-				log.Printf("Connection reset by peer: %v", err)
-				break
-			}
-			if err != io.EOF {
-				log.Fatalf("Error reading request from client: %v", err)
-			}
+			log.Fatalf("cannot read request: %v", err)
 			break
 		}
-		log.Println("Requests", base64.StdEncoding.EncodeToString(request))
+		jsonReqs, err := json.Marshal(reqs)
+		if err != nil {
+			log.Fatalf("cannot encode request to json: %v", err)
+			break
+		}
+		log.Println("Requests", string(jsonReqs))
 
 		log.Printf("writing to php-fpm")
-		_, err = serverConn.Write(request)
-		if err != nil {
-			log.Fatalf("Error sending request to server: %v", err)
-			break
+		for _, r := range reqs {
+			if err := binary.Write(serverConn, binary.BigEndian, r.Header); err != nil {
+				log.Fatalf("Error sending request header to server: %v", err)
+			}
+			if _, err := serverConn.Write(r.Buf); err != nil {
+				log.Fatalf("Error sending request content to server: %v", err)
+			}
 		}
 
 		log.Printf("reading from php-fpm")
@@ -116,6 +118,31 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) {
 		}
 
 	}
+}
+
+func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
+	reccords := make([]fcgiclient.Record, 0, 3)
+
+	// recive untill empty FCGI_STDIN or EOF ?
+	for {
+		rec := fcgiclient.Record{}
+		err := rec.Read(r)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		reccords = append(reccords, rec)
+		if err == io.EOF {
+			break
+		}
+		if rec.Header.Type != fcgiclient.FCGI_STDIN {
+			continue
+		}
+		if len(rec.Content()) == 0 {
+			break
+		}
+	}
+
+	return reccords, nil
 }
 
 func readFromConn(conn net.Conn) ([]byte, error) {

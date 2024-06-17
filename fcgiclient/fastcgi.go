@@ -25,18 +25,18 @@ const FCGI_NULL_REQUEST_ID uint8 = 0
 const FCGI_KEEP_CONN uint8 = 1
 
 const (
-	FCGI_BEGIN_REQUEST uint8 = iota + 1
-	FCGI_ABORT_REQUEST
-	FCGI_END_REQUEST
-	FCGI_PARAMS
-	FCGI_STDIN
-	FCGI_STDOUT
-	FCGI_STDERR
-	FCGI_DATA
-	FCGI_GET_VALUES
-	FCGI_GET_VALUES_RESULT
-	FCGI_UNKNOWN_TYPE
-	FCGI_MAXTYPE = FCGI_UNKNOWN_TYPE
+	FCGI_BEGIN_REQUEST     uint8               = iota + 1 // 1
+	FCGI_ABORT_REQUEST                                    // 2
+	FCGI_END_REQUEST                                      // 3
+	FCGI_PARAMS                                           // 4
+	FCGI_STDIN                                            // 5
+	FCGI_STDOUT                                           // 6
+	FCGI_STDERR                                           // 7
+	FCGI_DATA                                             // 8
+	FCGI_GET_VALUES                                       // 9
+	FCGI_GET_VALUES_RESULT                                // 10
+	FCGI_UNKNOWN_TYPE                                     // 11
+	FCGI_MAXTYPE           = FCGI_UNKNOWN_TYPE            // 11
 )
 
 const (
@@ -59,8 +59,8 @@ const (
 )
 
 const (
-	maxWrite = 6553500 // maximum record body
-	maxPad   = 255
+	MaxWrite = 6553500 // maximum record body
+	MaxPad   = 255
 )
 
 type Header struct {
@@ -74,7 +74,7 @@ type Header struct {
 
 // for padding so we don't have to allocate all the time
 // not synchronized because we don't care what the contents are
-var pad [maxPad]byte
+var pad [MaxPad]byte
 
 func (h *Header) init(recType uint8, reqId uint16, contentLength int) {
 	h.Version = 1
@@ -97,7 +97,7 @@ func (rec *Record) Read(r io.Reader) (err error) {
 		return errors.New("fcgi: invalid header version")
 	}
 	n := int(rec.Header.ContentLength) + int(rec.Header.PaddingLength)
-	if n > maxWrite+maxPad {
+	if n > MaxWrite+MaxPad {
 		return errors.New("fcgi: response is too long")
 	}
 	rec.Buf = make([]byte, n)
@@ -255,8 +255,8 @@ func (w *streamWriter) Write(p []byte) (int, error) {
 	nn := 0
 	for len(p) > 0 {
 		n := len(p)
-		if n > maxWrite {
-			n = maxWrite
+		if n > MaxWrite {
+			n = MaxWrite
 		}
 		if err := w.c.writeRecord(w.recType, w.reqId, p[:n]); err != nil {
 			return nn, err
