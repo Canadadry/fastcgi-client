@@ -1,3 +1,5 @@
+// forked from https://github.com/beberlei/fastcgi-serv
+
 package server
 
 import (

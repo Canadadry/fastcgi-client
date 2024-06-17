@@ -4,6 +4,8 @@
 
 // Fix bug: Can't recive more than 1 record untill FCGI_END_REQUEST 2012-09-15
 // By: wofeiwo
+//
+// forked from https://github.com/beberlei/fastcgi-serv
 
 package fcgiclient
 
