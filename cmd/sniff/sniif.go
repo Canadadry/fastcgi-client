@@ -1,6 +1,7 @@
 package sniff
 
 import (
+	"app/decoder"
 	"app/fcgiclient"
 	"encoding/binary"
 	"encoding/json"
@@ -82,11 +83,20 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
 	if err != nil {
 		return fmt.Errorf("cannot read request: %w", err)
 	}
-	jsonReqs, err := json.Marshal(reqs)
+	decoded, err := decoder.DecodeRequest(reqs)
 	if err != nil {
-		return fmt.Errorf("cannot encode request to json: %w", err)
+		jsonReqs, err1 := json.Marshal(reqs)
+		if err1 != nil {
+			return fmt.Errorf("cannot marshal raw request to json: %w", err1)
+		}
+		log.Println("Requests raw", string(jsonReqs))
+		return fmt.Errorf("cannot decode request: %w", err)
 	}
-	log.Println("Requests", string(jsonReqs))
+	jsonReqs, err := json.Marshal(decoded)
+	if err != nil {
+		return fmt.Errorf("cannot marshal decoded request to json: %w", err)
+	}
+	log.Println("Requests decoded", string(jsonReqs))
 
 	log.Printf("writing to php-fpm")
 	for _, r := range reqs {

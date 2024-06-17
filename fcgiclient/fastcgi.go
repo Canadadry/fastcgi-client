@@ -157,6 +157,12 @@ func (this *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolSta
 }
 
 func (this *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
+	w := newWriter(this, recType, reqId, GetPairSize(pairs))
+	defer w.Close()
+	return BuildPair(w, pairs)
+}
+
+func GetPairSize(pairs map[string]string) int {
 	b := make([]byte, 8)
 
 	writterBufSize := 0
@@ -169,8 +175,11 @@ func (this *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string
 
 		writterBufSize += (n + kLen + vLen)
 	}
+	return writterBufSize
+}
 
-	w := newWriter(this, recType, reqId, writterBufSize)
+func BuildPair(w io.Writer, pairs map[string]string) error {
+	b := make([]byte, 8)
 
 	for k, v := range pairs {
 		n := encodeSize(b, uint32(len(k)))
@@ -178,14 +187,13 @@ func (this *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string
 		if _, err := w.Write(b[:n]); err != nil {
 			return err
 		}
-		if _, err := w.WriteString(k); err != nil {
+		if _, err := io.WriteString(w, k); err != nil {
 			return err
 		}
-		if _, err := w.WriteString(v); err != nil {
+		if _, err := io.WriteString(w, v); err != nil {
 			return err
 		}
 	}
-	w.Close()
 	return nil
 }
 
