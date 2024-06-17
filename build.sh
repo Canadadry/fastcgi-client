@@ -26,5 +26,5 @@ do
 done
 
 cd build
-
+echo "writing checksum.txt"
 shasum -a 256 * > checksum.txt
