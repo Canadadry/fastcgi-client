@@ -63,7 +63,7 @@ const (
 	maxPad   = 255
 )
 
-type header struct {
+type Header struct {
 	Version       uint8
 	Type          uint8
 	Id            uint16
@@ -76,7 +76,7 @@ type header struct {
 // not synchronized because we don't care what the contents are
 var pad [maxPad]byte
 
-func (h *header) init(recType uint8, reqId uint16, contentLength int) {
+func (h *Header) init(recType uint8, reqId uint16, contentLength int) {
 	h.Version = 1
 	h.Type = recType
 	h.Id = reqId
@@ -84,57 +84,42 @@ func (h *header) init(recType uint8, reqId uint16, contentLength int) {
 	h.PaddingLength = uint8(-contentLength & 7)
 }
 
-type record struct {
-	h   header
-	buf []byte
+type Record struct {
+	Header Header
+	Buf    []byte
 }
 
-func (rec *record) read(r io.Reader) (err error) {
-	if err = binary.Read(r, binary.BigEndian, &rec.h); err != nil {
+func (rec *Record) Read(r io.Reader) (err error) {
+	if err = binary.Read(r, binary.BigEndian, &rec.Header); err != nil {
 		return err
 	}
-	if rec.h.Version != 1 {
+	if rec.Header.Version != 1 {
 		return errors.New("fcgi: invalid header version")
 	}
-	n := int(rec.h.ContentLength) + int(rec.h.PaddingLength)
+	n := int(rec.Header.ContentLength) + int(rec.Header.PaddingLength)
 	if n > maxWrite+maxPad {
 		return errors.New("fcgi: response is too long")
 	}
-	rec.buf = make([]byte, n)
-	if _, err = io.ReadFull(r, rec.buf[:n]); err != nil {
+	rec.Buf = make([]byte, n)
+	if _, err = io.ReadFull(r, rec.Buf[:n]); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *record) content() []byte {
-	return r.buf[:r.h.ContentLength]
+func (r *Record) Content() []byte {
+	return r.Buf[:r.Header.ContentLength]
 }
 
 type FCGIClient struct {
 	mutex     sync.Mutex
 	rwc       io.ReadWriteCloser
-	h         header
+	h         Header
 	buf       bytes.Buffer
 	keepAlive bool
 }
 
 func New(rwc io.ReadWriteCloser) *FCGIClient {
-	// var conn net.Conn
-	// if len(args) != 1 {
-	// 	err = errors.New("fcgi: not enough params")
-	// 	return
-	// }
-	// switch args[0].(type) {
-	// case int:
-	// 	addr := h + ":" + strconv.FormatInt(int64(args[0].(int)), 10)
-	// 	conn, err = net.Dial("tcp", addr)
-	// case string:
-	// 	addr := h + ":" + args[0].(string)
-	// 	conn, err = net.Dial("unix", addr)
-	// default:
-	// 	err = errors.New("fcgi: we only accept int (port) or string (socket) params.")
-	// }
 	return &FCGIClient{
 		rwc:       rwc,
 		keepAlive: false,
@@ -307,12 +292,12 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 		}
 	}
 
-	rec := &record{}
+	rec := &Record{}
 	var err1 error
 
 	// recive untill EOF or FCGI_END_REQUEST
 	for {
-		err1 = rec.read(this.rwc)
+		err1 = rec.Read(this.rwc)
 		if err1 != nil {
 			if err1 != io.EOF {
 				err = err1
@@ -320,11 +305,11 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 			break
 		}
 		switch {
-		case rec.h.Type == FCGI_STDOUT:
-			retout = append(retout, rec.content()...)
-		case rec.h.Type == FCGI_STDERR:
-			reterr = append(reterr, rec.content()...)
-		case rec.h.Type == FCGI_END_REQUEST:
+		case rec.Header.Type == FCGI_STDOUT:
+			retout = append(retout, rec.Content()...)
+		case rec.Header.Type == FCGI_STDERR:
+			reterr = append(reterr, rec.Content()...)
+		case rec.Header.Type == FCGI_END_REQUEST:
 			fallthrough
 		default:
 			break
