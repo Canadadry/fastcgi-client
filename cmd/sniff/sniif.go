@@ -59,7 +59,10 @@ func runProxy(listener net.Listener, phpFpmAddr string) {
 			defer wg.Done()
 			defer clientConn.Close()
 			log.Printf("handling tcp client")
-			handleConnection(clientConn, phpFpmAddr)
+			err := handleConnection(clientConn, phpFpmAddr)
+			if err != nil {
+				log.Fatalln(err)
+			}
 		}()
 	}
 	listener.Close()
@@ -67,60 +70,55 @@ func runProxy(listener net.Listener, phpFpmAddr string) {
 
 }
 
-func handleConnection(clientConn net.Conn, phpFpmAddr string) {
+func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
 	serverConn, err := net.Dial("tcp", phpFpmAddr)
 	if err != nil {
-		log.Fatalf("Error connecting to PHP-FPM: %v", err)
+		return fmt.Errorf("error connecting to PHP-FPM: %w", err)
 	}
 	defer serverConn.Close()
 	log.Printf("connected to php-fpm")
 
-	for {
-		reqs, err := readFullRequest(clientConn)
-		if err != nil {
-			log.Fatalf("cannot read request: %v", err)
-			break
-		}
-		jsonReqs, err := json.Marshal(reqs)
-		if err != nil {
-			log.Fatalf("cannot encode request to json: %v", err)
-			break
-		}
-		log.Println("Requests", string(jsonReqs))
+	reqs, err := readFullRequest(clientConn)
+	if err != nil {
+		return fmt.Errorf("cannot read request: %w", err)
+	}
+	jsonReqs, err := json.Marshal(reqs)
+	if err != nil {
+		return fmt.Errorf("cannot encode request to json: %w", err)
+	}
+	log.Println("Requests", string(jsonReqs))
 
-		log.Printf("writing to php-fpm")
-		for _, r := range reqs {
-			if err := binary.Write(serverConn, binary.BigEndian, r.Header); err != nil {
-				log.Fatalf("Error sending request header to server: %v", err)
-			}
-			if _, err := serverConn.Write(r.Buf); err != nil {
-				log.Fatalf("Error sending request content to server: %v", err)
-			}
+	log.Printf("writing to php-fpm")
+	for _, r := range reqs {
+		if err := binary.Write(serverConn, binary.BigEndian, r.Header); err != nil {
+			return fmt.Errorf("Error sending request header to server: %w", err)
 		}
-
-		log.Printf("reading from php-fpm")
-		resps, err := readFullResponse(serverConn)
-		if err != nil {
-			log.Fatalf("cannot read response: %v", err)
-			break
-		}
-		jsonRsps, err := json.Marshal(resps)
-		if err != nil {
-			log.Fatalf("cannot encode response to json: %v", err)
-			break
-		}
-		log.Println("Response", string(jsonRsps))
-
-		log.Printf("writting back to tcp client")
-		for _, r := range resps {
-			if err := binary.Write(clientConn, binary.BigEndian, r.Header); err != nil {
-				log.Fatalf("Error sending response header to server: %v", err)
-			}
-			if _, err := clientConn.Write(r.Buf); err != nil {
-				log.Fatalf("Error sending response content to server: %v", err)
-			}
+		if _, err := serverConn.Write(r.Buf); err != nil {
+			return fmt.Errorf("Error sending request content to server: %w", err)
 		}
 	}
+
+	log.Printf("reading from php-fpm")
+	resps, err := readFullResponse(serverConn)
+	if err != nil {
+		return fmt.Errorf("cannot read response: %w", err)
+	}
+	jsonRsps, err := json.Marshal(resps)
+	if err != nil {
+		return fmt.Errorf("cannot encode response to json: %w", err)
+	}
+	log.Println("Response", string(jsonRsps))
+
+	log.Printf("writting back to tcp client")
+	for _, r := range resps {
+		if err := binary.Write(clientConn, binary.BigEndian, r.Header); err != nil {
+			return fmt.Errorf("error sending response header to server: %w", err)
+		}
+		if _, err := clientConn.Write(r.Buf); err != nil {
+			return fmt.Errorf("error sending response content to server: %w", err)
+		}
+	}
+	return nil
 }
 
 func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
@@ -168,24 +166,4 @@ func readFullResponse(r io.Reader) ([]fcgiclient.Record, error) {
 	}
 
 	return reccords, nil
-}
-func readFromConn(conn net.Conn) ([]byte, error) {
-	buf := make([]byte, 4096)
-	var data []byte
-
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				data = append(data, buf[:n]...)
-				return data, nil
-			}
-			return nil, err
-		}
-		data = append(data, buf[:n]...)
-		if n < 4096 {
-			break
-		}
-	}
-	return data, nil
 }
