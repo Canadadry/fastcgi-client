@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-package_name="fastcig-client"
+package_name="fcgi-client"
 platforms=("darwin/arm64" "darwin/amd64" "linux/386" "linux/amd64" "windows/386" "windows/amd64")
 
 mkdir -p build
