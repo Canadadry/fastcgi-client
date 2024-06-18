@@ -5,7 +5,6 @@ package server
 import (
 	"app/decoder"
 	"app/fcgiclient"
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -103,26 +102,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s \"%s %s %s\" %d %d \"%s\" \"%s\"\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, rsp.StatusCode, len(content), r.UserAgent(), stderr)
 }
 
-func ReadEnvironmentFile(path string) {
-	file, err := os.Open(path + "/.env")
-
-	if err != nil {
-		return
-	}
-
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	serverEnvironment = make(map[string]string)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, "=") {
-			parts := strings.Split(line, "=")
-			serverEnvironment[parts[0]] = parts[1]
-		}
-	}
-}
-
 func Run(args []string) error {
 
 	cwd, _ := os.Getwd()
@@ -136,8 +115,6 @@ func Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("cannot parse argument : %w", err)
 	}
-
-	ReadEnvironmentFile(cwd)
 
 	staticHandler = http.NewServeMux()
 	staticHandler.Handle("/", http.FileServer(http.Dir(documentRoot)))
