@@ -1,4 +1,11 @@
 <?php
+$queries = [];
+parse_str($_SERVER["QUERY_STRING"], $queries);
+if (array_key_exists("status_code", $queries)) {
+	http_response_code(intval($queries["status_code"]));
+	header("Status-Code:" . $queries["status_code"]);
+	header("X-Status-Code: " . $queries["status_code"]);
+}
 // Display the requested URL
 echo "<h1>Requested URL:</h1>";
 echo "<p>" . $_SERVER["REQUEST_URI"] . "</p>";
