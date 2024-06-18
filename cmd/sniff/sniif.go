@@ -145,10 +145,10 @@ func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
 		if err == io.EOF {
 			break
 		}
-		if rec.Header.Type != fcgiclient.FCGI_STDIN {
-			continue
+		if rec.Header.Type == fcgiclient.FCGI_STDIN && len(rec.Content()) == 0 {
+			break
 		}
-		if len(rec.Content()) == 0 {
+		if rec.Header.Type == fcgiclient.FCGI_PARAMS && len(rec.Content()) == 0 {
 			break
 		}
 	}
