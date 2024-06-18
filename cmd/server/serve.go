@@ -3,16 +3,15 @@
 package server
 
 import (
+	"app/decoder"
 	"app/fcgiclient"
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -34,14 +33,10 @@ func respond(w http.ResponseWriter, body string, statusCode int, headers map[str
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	reqParams := ""
 	var filename string
 	var scriptName string
 
-	if r.Method == "POST" {
-		body, _ := io.ReadAll(r.Body)
-		reqParams = string(body)
-	}
+	rBody, _ := io.ReadAll(r.Body)
 
 	if r.URL.Path == "/.env" {
 		respond(w, "Not allowed", 403, map[string]string{})
@@ -85,8 +80,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	//env["HTTP_HOST"] = r.Host
 	//env["SERVER_ADDR"] = listen
 
-	fmt.Println("request", env)
-
 	for header, values := range r.Header {
 		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values[0]
 	}
@@ -97,54 +90,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fcgi := fcgiclient.New(conn)
-	content, _, err := fcgi.Request(env, reqParams)
+	content, stderr, err := fcgi.Request(env, string(rBody))
 
 	if err != nil {
 		fmt.Printf("ERROR: %s - %v", r.URL.Path, err)
 	}
 
-	statusCode, headers, body, err := ParseFastCgiResponse(fmt.Sprintf("%s", content))
+	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
 
-	respond(w, body, statusCode, headers)
+	respond(w, rsp.Stdout, rsp.StatusCode, rsp.Headers)
 
-	fmt.Printf("%s \"%s %s %s\" %d %d \"%s\"\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, statusCode, len(content), r.UserAgent())
-}
-
-func ParseFastCgiResponse(content string) (int, map[string]string, string, error) {
-	var headers map[string]string
-
-	parts := strings.SplitN(content, "\r\n\r\n", 2)
-
-	if len(parts) < 2 {
-		return 502, headers, "", errors.New("Cannot parse FastCGI Response")
-	}
-
-	headerParts := strings.Split(parts[0], ":")
-	body := parts[1]
-	status := 200
-
-	if strings.HasPrefix(headerParts[0], "Status:") {
-		lineParts := strings.SplitN(headerParts[0], " ", 3)
-		status, _ = strconv.Atoi(lineParts[1])
-	}
-
-	for _, line := range headerParts {
-		lineParts := strings.SplitN(line, ":", 2)
-
-		if len(lineParts) < 2 {
-			continue
-		}
-
-		lineParts[1] = strings.TrimSpace(lineParts[1])
-
-		if lineParts[0] == "Status" {
-			continue
-		}
-
-		headers[lineParts[0]] = lineParts[1]
-	}
-
-	return status, headers, body, nil
+	fmt.Printf("%s \"%s %s %s\" %d %d \"%s\" \"%s\"\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, rsp.StatusCode, len(content), r.UserAgent(), stderr)
 }
 
 func ReadEnvironmentFile(path string) {

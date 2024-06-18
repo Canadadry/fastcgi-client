@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 )
 
 type Request struct {
@@ -101,4 +103,50 @@ func decodeEnv(r io.Reader) (map[string]string, error) {
 	}
 
 	return pairs, nil
+}
+
+type Response struct {
+	StatusCode int
+	Headers    map[string]string
+	Stdout     string
+}
+
+func ParseResponse(content string) (Response, error) {
+	rsp := Response{
+		StatusCode: 502,
+		Headers:    map[string]string{},
+	}
+
+	parts := strings.SplitN(content, "\r\n\r\n", 2)
+
+	if len(parts) < 2 {
+		return rsp, fmt.Errorf("cannot parse response, content must have 2 part got %v", len(parts))
+	}
+
+	headerParts := strings.Split(parts[0], ":")
+	rsp.Stdout = parts[1]
+	rsp.StatusCode = 200
+
+	if strings.HasPrefix(headerParts[0], "Status:") {
+		lineParts := strings.SplitN(headerParts[0], " ", 3)
+		rsp.StatusCode, _ = strconv.Atoi(lineParts[1])
+	}
+
+	for _, line := range headerParts {
+		lineParts := strings.SplitN(line, ":", 2)
+
+		if len(lineParts) < 2 {
+			continue
+		}
+
+		lineParts[1] = strings.TrimSpace(lineParts[1])
+
+		if lineParts[0] == "Status" {
+			continue
+		}
+
+		rsp.Headers[lineParts[0]] = lineParts[1]
+	}
+
+	return rsp, nil
 }
