@@ -16,12 +16,12 @@ import (
 
 const Action = "server"
 
-var documentRoot string
-var index string
-var listen string
-var staticHandler *http.ServeMux
-var server string
-var serverEnvironment map[string]string
+type Server struct {
+	DocumentRoot  string
+	Index         string
+	StaticHandler *http.ServeMux
+	FCGIHost      string
+}
 
 func respond(w http.ResponseWriter, body string, statusCode int, headers map[string]string) {
 	w.WriteHeader(statusCode)
@@ -31,99 +31,100 @@ func respond(w http.ResponseWriter, body string, statusCode int, headers map[str
 	fmt.Fprintf(w, "%s", body)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	var filename string
-	var scriptName string
+func handler(srv Server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var filename string
+		var scriptName string
 
-	rBody, _ := io.ReadAll(r.Body)
+		rBody, _ := io.ReadAll(r.Body)
 
-	if r.URL.Path == "/.env" {
-		respond(w, "Not allowed", 403, map[string]string{})
-		return
-	} else if r.URL.Path == "/" || r.URL.Path == "" {
-		scriptName = "/" + index
-		filename = documentRoot + "/" + index
-	} else {
-		scriptName = r.URL.Path
-		filename = documentRoot + r.URL.Path
+		if r.URL.Path == "/.env" || r.URL.Path == "/" || r.URL.Path == "" {
+			scriptName = "/" + srv.Index
+			filename = srv.DocumentRoot + "/" + srv.Index
+		} else {
+			scriptName = r.URL.Path
+			filename = srv.DocumentRoot + r.URL.Path
+		}
+
+		// static file exists
+		_, err := os.Stat(filename)
+		if !strings.HasSuffix(filename, ".php") && err == nil {
+			srv.StaticHandler.ServeHTTP(w, r)
+			return
+		}
+
+		if os.IsNotExist(err) {
+			scriptName = "/" + srv.Index
+			filename = srv.DocumentRoot + "/" + srv.Index
+		}
+
+		env := map[string]string{
+			"REQUEST_METHOD":  r.Method,
+			"SCRIPT_FILENAME": filename,
+			"SCRIPT_NAME":     scriptName,
+			"SERVER_SOFTWARE": "go / fcgiclient ",
+			"REMOTE_ADDR":     r.RemoteAddr,
+			"SERVER_PROTOCOL": "HTTP/1.1",
+			"PATH_INFO":       r.URL.Path,
+			"DOCUMENT_ROOT":   srv.DocumentRoot,
+			"QUERY_STRING":    r.URL.RawQuery,
+			"REQUEST_URI":     r.URL.Path + "?" + r.URL.RawQuery,
+			//env["HTTP_HOST"] = r.Host
+			//env["SERVER_ADDR"] = listen
+		}
+
+		for header, values := range r.Header {
+			env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values[0]
+		}
+
+		conn, err := net.Dial("tcp", srv.FCGIHost)
+		if err != nil {
+			fmt.Printf("err: %v", err)
+		}
+
+		fcgi := fcgiclient.New(conn)
+		content, stderr, err := fcgi.Request(env, string(rBody))
+
+		if err != nil {
+			fmt.Printf("ERROR: %s - %v", r.URL.Path, err)
+		}
+
+		rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
+
+		respond(w, rsp.Stdout, rsp.StatusCode, rsp.Headers)
+
+		fmt.Printf("%s \"%s %s %s\" %d %d \"%s\" \"%s\"\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, rsp.StatusCode, len(content), r.UserAgent(), stderr)
 	}
-
-	// static file exists
-	_, err := os.Stat(filename)
-	if !strings.HasSuffix(filename, ".php") && err == nil {
-		staticHandler.ServeHTTP(w, r)
-		return
-	}
-
-	if os.IsNotExist(err) {
-		scriptName = "/" + index
-		filename = documentRoot + "/" + index
-	}
-
-	env := make(map[string]string)
-
-	for name, value := range serverEnvironment {
-		env[name] = value
-	}
-
-	env["REQUEST_METHOD"] = r.Method
-	env["SCRIPT_FILENAME"] = filename
-	env["SCRIPT_NAME"] = scriptName
-	env["SERVER_SOFTWARE"] = "go / fcgiclient "
-	env["REMOTE_ADDR"] = r.RemoteAddr
-	env["SERVER_PROTOCOL"] = "HTTP/1.1"
-	env["PATH_INFO"] = r.URL.Path
-	env["DOCUMENT_ROOT"] = documentRoot
-	env["QUERY_STRING"] = r.URL.RawQuery
-	env["REQUEST_URI"] = r.URL.Path + "?" + r.URL.RawQuery
-	//env["HTTP_HOST"] = r.Host
-	//env["SERVER_ADDR"] = listen
-
-	for header, values := range r.Header {
-		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values[0]
-	}
-
-	conn, err := net.Dial("tcp", server)
-	if err != nil {
-		fmt.Printf("err: %v", err)
-	}
-
-	fcgi := fcgiclient.New(conn)
-	content, stderr, err := fcgi.Request(env, string(rBody))
-
-	if err != nil {
-		fmt.Printf("ERROR: %s - %v", r.URL.Path, err)
-	}
-
-	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
-
-	respond(w, rsp.Stdout, rsp.StatusCode, rsp.Headers)
-
-	fmt.Printf("%s \"%s %s %s\" %d %d \"%s\" \"%s\"\n", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, rsp.StatusCode, len(content), r.UserAgent(), stderr)
 }
 
 func Run(args []string) error {
 
 	cwd, _ := os.Getwd()
+	listen := "localhost:8080"
+	srv := Server{
+		DocumentRoot: cwd,
+		FCGIHost:     "127.0.0.1:9000",
+		Index:        "index.php",
+	}
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
-	fs.StringVar(&documentRoot, "document-root", cwd, "The document root to serve files from")
-	fs.StringVar(&listen, "listen", "localhost:8080", "The webserver bind address to listen to.")
-	fs.StringVar(&server, "server", "127.0.0.1:9000", "The FastCGI Server to listen to")
-	fs.StringVar(&index, "index", "index.php", "The default script to call when path cannot be served by existing file.")
+	fs.StringVar(&srv.DocumentRoot, "document-root", srv.DocumentRoot, "The document root to serve files from")
+	fs.StringVar(&listen, "listen", listen, "The webserver bind address to listen to.")
+	fs.StringVar(&srv.FCGIHost, "server", srv.FCGIHost, "The FastCGI Server to listen to")
+	fs.StringVar(&srv.Index, "index", srv.Index, "The default script to call when path cannot be served by existing file.")
 
 	err := fs.Parse(args)
 	if err != nil {
 		return fmt.Errorf("cannot parse argument : %w", err)
 	}
 
-	staticHandler = http.NewServeMux()
-	staticHandler.Handle("/", http.FileServer(http.Dir(documentRoot)))
+	srv.StaticHandler = http.NewServeMux()
+	srv.StaticHandler.Handle("/", http.FileServer(http.Dir(srv.DocumentRoot)))
 
 	fmt.Printf("Listening on http://%s\n", listen)
-	fmt.Printf("Document root is %s\n", documentRoot)
+	fmt.Printf("Document root is %s\n", srv.DocumentRoot)
 	fmt.Printf("Press Ctrl-C to quit.\n")
 
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", handler(srv))
 	http.ListenAndServe(listen, nil)
 	return nil
 }
