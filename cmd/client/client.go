@@ -28,20 +28,21 @@ type FCGIRequest struct {
 }
 
 func Do(host string, req FCGIRequest) error {
-	env := map[string]string{}
-	env["CONTENT_LENGTH"] = fmt.Sprintf("%d", len(req.Body))
-	env["CONTENT_TYPE"] = http.DetectContentType([]byte(req.Body[:min(len(req.Body), 512)]))
-	env["DOCUMENT_URI"] = req.Url.Path
-	env["GATEWAY_INTERFACE"] = "CGI/1.1"
-	env["REQUEST_SCHEME"] = "http"
-	env["SERVER_PROTOCOL"] = "HTTP/1.1"
-	env["REQUEST_METHOD"] = req.Method
-	env["SCRIPT_FILENAME"] = req.Filename
-	env["SCRIPT_NAME"] = req.Url.Path
-	env["SERVER_SOFTWARE"] = "go / fcgiclient "
-	env["DOCUMENT_ROOT"] = req.DocumentRoot
-	env["QUERY_STRING"] = req.Url.RawQuery
-	env["REQUEST_URI"] = req.Url.Path
+	env := map[string]string{
+		"CONTENT_LENGTH":    fmt.Sprintf("%d", len(req.Body)),
+		"CONTENT_TYPE":      http.DetectContentType([]byte(req.Body[:min(len(req.Body), 512)])),
+		"DOCUMENT_URI":      req.Url.Path,
+		"GATEWAY_INTERFACE": "CGI/1.1",
+		"REQUEST_SCHEME":    "http",
+		"SERVER_PROTOCOL":   "HTTP/1.1",
+		"REQUEST_METHOD":    req.Method,
+		"SCRIPT_FILENAME":   req.Filename,
+		"SCRIPT_NAME":       req.Url.Path,
+		"SERVER_SOFTWARE":   "go / fcgiclient ",
+		"DOCUMENT_ROOT":     req.DocumentRoot,
+		"QUERY_STRING":      req.Url.RawQuery,
+		"REQUEST_URI":       req.Url.Path,
+	}
 
 	for header, values := range req.Header {
 		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values

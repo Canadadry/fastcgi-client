@@ -136,22 +136,24 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 		}
 
 		env := map[string]string{
-			"REQUEST_METHOD":  r.Method,
-			"SCRIPT_FILENAME": srv.DocumentRoot + "/" + srv.Index,
-			"SCRIPT_NAME":     "/" + srv.Index,
-			"SERVER_SOFTWARE": "go / fcgiclient ",
-			"REMOTE_ADDR":     r.RemoteAddr,
-			"SERVER_PROTOCOL": "HTTP/1.1",
-			"PATH_INFO":       r.URL.Path,
-			"DOCUMENT_ROOT":   srv.DocumentRoot,
-			"QUERY_STRING":    r.URL.RawQuery,
-			"REQUEST_URI":     r.URL.Path + "?" + r.URL.RawQuery,
-			//env["HTTP_HOST"] = r.Host
-			//env["SERVER_ADDR"] = listen
+			"CONTENT_LENGTH":    fmt.Sprintf("%d", len(rBody)),
+			"CONTENT_TYPE":      http.DetectContentType([]byte(rBody[:min(len(rBody), 512)])),
+			"DOCUMENT_URI":      r.URL.Path,
+			"GATEWAY_INTERFACE": "CGI/1.1",
+			"REQUEST_SCHEME":    "http",
+			"SERVER_PROTOCOL":   "HTTP/1.1",
+			"REQUEST_METHOD":    r.Method,
+			"SCRIPT_FILENAME":   srv.DocumentRoot + "/" + srv.Index,
+			"SCRIPT_NAME":       r.URL.Path,
+			"SERVER_SOFTWARE":   "go / fcgiclient ",
+			"DOCUMENT_ROOT":     srv.DocumentRoot,
+			"QUERY_STRING":      r.URL.RawQuery,
+			"REQUEST_URI":       r.URL.Path,
 		}
 
 		for header, values := range r.Header {
-			env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values[0]
+			name := "HTTP_" + strings.Replace(strings.ToUpper(header), "-", "_", -1)
+			env[name] = values[0]
 		}
 
 		conn, err := net.Dial("tcp", srv.FCGIHost)

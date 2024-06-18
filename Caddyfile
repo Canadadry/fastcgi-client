@@ -1,7 +1,0 @@
-:8080 {
-	root * ./test_cases/tests_generator
-	php_fastcgi 127.0.0.1:9001 {
-		env SCRIPT_FILENAME {root}/index.php
-		env REQUEST_URI {uri}
-	}
-}
