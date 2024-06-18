@@ -112,41 +112,35 @@ type Response struct {
 }
 
 func ParseResponse(content string) (Response, error) {
-	rsp := Response{
-		StatusCode: 502,
-		Headers:    map[string]string{},
-	}
 
 	parts := strings.SplitN(content, "\r\n\r\n", 2)
 
 	if len(parts) < 2 {
-		return rsp, fmt.Errorf("cannot parse response, content must have 2 part got %v", len(parts))
+		return Response{StatusCode: 502}, fmt.Errorf("cannot parse response, content must have 2 part got %v", len(parts))
 	}
 
-	headerParts := strings.Split(parts[0], ":")
-	rsp.Stdout = parts[1]
-	rsp.StatusCode = 200
-
-	if strings.HasPrefix(headerParts[0], "Status:") {
-		lineParts := strings.SplitN(headerParts[0], " ", 3)
-		rsp.StatusCode, _ = strconv.Atoi(lineParts[1])
+	rsp := Response{
+		StatusCode: 200,
+		Headers:    ParseHeader(parts[0]),
+		Stdout:     parts[1],
 	}
 
-	for _, line := range headerParts {
-		lineParts := strings.SplitN(line, ":", 2)
-
-		if len(lineParts) < 2 {
-			continue
-		}
-
-		lineParts[1] = strings.TrimSpace(lineParts[1])
-
-		if lineParts[0] == "Status" {
-			continue
-		}
-
-		rsp.Headers[lineParts[0]] = lineParts[1]
+	if st, ok := rsp.Headers["Status"]; ok {
+		rsp.StatusCode, _ = strconv.Atoi(st[0:3])
 	}
 
 	return rsp, nil
+}
+
+func ParseHeader(content string) map[string]string {
+	headers := map[string]string{}
+	headerParts := strings.Split(content, "\r\n")
+	for _, line := range headerParts {
+		lineParts := strings.SplitN(line, ":", 2)
+		if len(lineParts) < 2 {
+			continue
+		}
+		headers[lineParts[0]] = strings.TrimSpace(lineParts[1])
+	}
+	return headers
 }

@@ -1,9 +1,9 @@
 package client
 
 import (
+	"app/decoder"
 	"app/fcgiclient"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -40,32 +40,32 @@ func Do(host string, req FCGIRequest) error {
 	//env["HTTP_HOST"] = r.Host
 	//env["SERVER_ADDR"] = listen
 
-	fmt.Println("request", env)
+	for header, values := range req.Header {
+		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
+	}
 
 	for name, value := range req.Env {
 		env[name] = value
 	}
-	for header, values := range req.Header {
-		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
-	}
+
 	conn, err := net.Dial("tcp", host)
 	if err != nil {
 		return fmt.Errorf("cannot open conn to php server: %w", err)
 	}
 	fcgi := fcgiclient.New(conn)
 
-	content, _, err := fcgi.Request(env, req.Body)
+	content, stderr, err := fcgi.Request(env, req.Body)
 
 	if err != nil {
-		return fmt.Errorf("cannot send fcgi request: %w", err)
+		return fmt.Errorf("cannot send fcgi request: %w : %s", err, stderr)
 	}
 
-	statusCode, headers, body, err := ParseFastCgiResponse(fmt.Sprintf("%s", content))
+	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
 	if err != nil {
-		return fmt.Errorf("cannot read fcgi reqponse: %w", err)
+		return fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, stderr)
 	}
 
-	fmt.Println("statusCode", statusCode, "headers", headers, "body", body)
+	fmt.Println("statusCode", rsp.StatusCode, "headers", rsp.Headers, "body", rsp.Stdout, "stderr", stderr)
 	return nil
 }
 
@@ -75,7 +75,7 @@ func ParseFastCgiResponse(content string) (int, map[string]string, string, error
 	parts := strings.SplitN(content, "\r\n\r\n", 2)
 
 	if len(parts) < 2 {
-		return 502, headers, "", errors.New("Cannot parse FastCGI Response")
+		return 502, headers, "", fmt.Errorf("Cannot parse FastCGI Response expect two part got %v \n -%s-", len(parts), content)
 	}
 
 	headerParts := strings.Split(parts[0], ":")
@@ -138,10 +138,16 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
-
-	err = json.Unmarshal([]byte(env), &req.Env)
-	if err != nil {
-		return fmt.Errorf("cannot read env json data : %w", err)
+	if env != "" {
+		f, err := os.Open(env)
+		if err != nil {
+			return fmt.Errorf("cannot open env file : %w", err)
+		}
+		defer f.Close()
+		err = json.NewDecoder(f).Decode(&req.Env)
+		if err != nil {
+			return fmt.Errorf("cannot read env json data : %w", err)
+		}
 	}
 
 	err = json.Unmarshal([]byte(header), &req.Header)
