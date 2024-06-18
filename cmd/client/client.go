@@ -7,6 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -16,7 +18,7 @@ const Action = "client"
 
 type FCGIRequest struct {
 	Method       string
-	Url          string
+	Url          *url.URL
 	Body         string
 	Filename     string
 	ScriptName   string
@@ -27,18 +29,19 @@ type FCGIRequest struct {
 
 func Do(host string, req FCGIRequest) error {
 	env := map[string]string{}
+	env["CONTENT_LENGTH"] = fmt.Sprintf("%d", len(req.Body))
+	env["CONTENT_TYPE"] = http.DetectContentType([]byte(req.Body[:min(len(req.Body), 512)]))
+	env["DOCUMENT_URI"] = req.Url.Path
+	env["GATEWAY_INTERFACE"] = "CGI/1.1"
+	env["REQUEST_SCHEME"] = "http"
+	env["SERVER_PROTOCOL"] = "HTTP/1.1"
 	env["REQUEST_METHOD"] = req.Method
 	env["SCRIPT_FILENAME"] = req.Filename
-	env["SCRIPT_NAME"] = req.ScriptName
+	env["SCRIPT_NAME"] = req.Url.Path
 	env["SERVER_SOFTWARE"] = "go / fcgiclient "
-	// env["REMOTE_ADDR"] = r.RemoteAddr
-	env["SERVER_PROTOCOL"] = "HTTP/1.1"
-	// env["PATH_INFO"] = r.URL.Path
 	env["DOCUMENT_ROOT"] = req.DocumentRoot
-	// env["QUERY_STRING"] = r.URL.RawQuery
-	env["REQUEST_URI"] = req.Url
-	//env["HTTP_HOST"] = r.Host
-	//env["SERVER_ADDR"] = listen
+	env["QUERY_STRING"] = req.Url.RawQuery
+	env["REQUEST_URI"] = req.Url.Path
 
 	for header, values := range req.Header {
 		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
@@ -57,15 +60,15 @@ func Do(host string, req FCGIRequest) error {
 	content, stderr, err := fcgi.Request(env, req.Body)
 
 	if err != nil {
-		return fmt.Errorf("cannot send fcgi request: %w : %s", err, stderr)
+		return fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
 	}
 
 	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
 	if err != nil {
-		return fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, stderr)
+		return fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, string(stderr))
 	}
 
-	fmt.Println("statusCode", rsp.StatusCode, "headers", rsp.Headers, "body", rsp.Stdout, "stderr", stderr)
+	fmt.Println("statusCode", rsp.StatusCode, "headers", rsp.Headers, "body", rsp.Stdout, "stderr", string(stderr))
 	return nil
 }
 
@@ -109,24 +112,25 @@ func ParseFastCgiResponse(content string) (int, map[string]string, string, error
 func Run(args []string) error {
 
 	cwd, _ := os.Getwd()
+	rawUrl := "/"
 	req := FCGIRequest{
 		Method:       "GET",
-		Url:          "/",
 		DocumentRoot: cwd,
 		ScriptName:   "index.php",
 		Filename:     cwd + "/index.php",
 	}
 	host := "127.0.0.1:9000"
-	env := "{}"
+	env := ""
 	header := "{}"
 	help := false
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
 	fs.StringVar(&host, "host", host, "php-fmp hostname")
 	fs.StringVar(&req.Method, "method", req.Method, "request method")
-	fs.StringVar(&req.Url, "url", req.Url, "request url")
+	fs.StringVar(&rawUrl, "url", rawUrl, "request url")
 	fs.StringVar(&req.Filename, "filename", req.Filename, "request filename")
 	fs.StringVar(&req.ScriptName, "script-name", req.ScriptName, "request script-name")
 	fs.StringVar(&req.DocumentRoot, "document-root", req.DocumentRoot, "request document root")
+	fs.StringVar(&req.Body, "body", req.Body, "request body")
 	fs.StringVar(&env, "env", env, "request env as json")
 	fs.StringVar(&header, "header", header, "request header as json")
 	fs.BoolVar(&help, "help", help, "print cmd help")
@@ -153,6 +157,11 @@ func Run(args []string) error {
 	err = json.Unmarshal([]byte(header), &req.Header)
 	if err != nil {
 		return fmt.Errorf("cannot read header json data : %w", err)
+	}
+
+	req.Url, err = url.Parse(rawUrl)
+	if err != nil {
+		return fmt.Errorf("cannot parse input url : %w", err)
 	}
 
 	return Do(host, req)
