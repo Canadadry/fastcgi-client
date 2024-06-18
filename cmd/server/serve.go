@@ -32,36 +32,38 @@ func respond(w http.ResponseWriter, body string, statusCode int, headers map[str
 }
 
 func handler(srv Server) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var filename string
-		var scriptName string
-
-		rBody, _ := io.ReadAll(r.Body)
-
+	staticHandler := func(w http.ResponseWriter, r *http.Request) bool {
+		filename := srv.DocumentRoot + r.URL.Path
 		if r.URL.Path == "/.env" || r.URL.Path == "/" || r.URL.Path == "" {
-			scriptName = "/" + srv.Index
 			filename = srv.DocumentRoot + "/" + srv.Index
-		} else {
-			scriptName = r.URL.Path
-			filename = srv.DocumentRoot + r.URL.Path
 		}
-
-		// static file exists
 		_, err := os.Stat(filename)
-		if !strings.HasSuffix(filename, ".php") && err == nil {
+		if err == nil && !strings.HasSuffix(filename, ".php") {
 			srv.StaticHandler.ServeHTTP(w, r)
+			return true
+		}
+		if err != nil && !os.IsNotExist(err) {
+			fmt.Printf("cannot stat %s : %v\n", filename, err)
+			respond(w, "server error", 500, nil)
+			return true
+		}
+		return false
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if staticHandler(w, r) {
 			return
 		}
-
-		if os.IsNotExist(err) {
-			scriptName = "/" + srv.Index
-			filename = srv.DocumentRoot + "/" + srv.Index
+		rBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			fmt.Printf("cannot read request body: %v", err)
+			respond(w, "server error", 500, nil)
+			return
 		}
 
 		env := map[string]string{
 			"REQUEST_METHOD":  r.Method,
-			"SCRIPT_FILENAME": filename,
-			"SCRIPT_NAME":     scriptName,
+			"SCRIPT_FILENAME": srv.DocumentRoot + "/" + srv.Index,
+			"SCRIPT_NAME":     "/" + srv.Index,
 			"SERVER_SOFTWARE": "go / fcgiclient ",
 			"REMOTE_ADDR":     r.RemoteAddr,
 			"SERVER_PROTOCOL": "HTTP/1.1",
@@ -79,17 +81,25 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) {
 
 		conn, err := net.Dial("tcp", srv.FCGIHost)
 		if err != nil {
-			fmt.Printf("err: %v", err)
+			fmt.Printf("cannot read request body: %v", err)
+			respond(w, "cannot found server", 502, nil)
+			return
 		}
 
 		fcgi := fcgiclient.New(conn)
 		content, stderr, err := fcgi.Request(env, string(rBody))
-
 		if err != nil {
-			fmt.Printf("ERROR: %s - %v", r.URL.Path, err)
+			fmt.Printf("while request php-fpm %s : %v", r.URL.Path, err)
+			respond(w, "server error", 500, nil)
+			return
 		}
 
 		rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
+		if err != nil {
+			fmt.Printf("cannot decode response of %s : %v", r.URL.Path, err)
+			respond(w, "server error", 500, nil)
+			return
+		}
 
 		respond(w, rsp.Stdout, rsp.StatusCode, rsp.Headers)
 
