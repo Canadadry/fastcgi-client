@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -20,8 +21,7 @@ type FCGIRequest struct {
 	Method       string
 	Url          *url.URL
 	Body         string
-	Filename     string
-	ScriptName   string
+	Index        string
 	DocumentRoot string
 	Env          map[string]string
 	Header       map[string]string
@@ -36,7 +36,7 @@ func Do(host string, req FCGIRequest) error {
 		"REQUEST_SCHEME":    "http",
 		"SERVER_PROTOCOL":   "HTTP/1.1",
 		"REQUEST_METHOD":    req.Method,
-		"SCRIPT_FILENAME":   req.Filename,
+		"SCRIPT_FILENAME":   path.Join(req.DocumentRoot + req.Index),
 		"SCRIPT_NAME":       req.Url.Path,
 		"SERVER_SOFTWARE":   "go / fcgiclient ",
 		"DOCUMENT_ROOT":     req.DocumentRoot,
@@ -117,8 +117,7 @@ func Run(args []string) error {
 	req := FCGIRequest{
 		Method:       "GET",
 		DocumentRoot: cwd,
-		ScriptName:   "index.php",
-		Filename:     cwd + "/index.php",
+		Index:        "index.php",
 	}
 	host := "127.0.0.1:9000"
 	env := ""
@@ -128,8 +127,7 @@ func Run(args []string) error {
 	fs.StringVar(&host, "host", host, "php-fmp hostname")
 	fs.StringVar(&req.Method, "method", req.Method, "request method")
 	fs.StringVar(&rawUrl, "url", rawUrl, "request url")
-	fs.StringVar(&req.Filename, "filename", req.Filename, "request filename")
-	fs.StringVar(&req.ScriptName, "script-name", req.ScriptName, "request script-name")
+	fs.StringVar(&req.Index, "index", req.Index, "request index")
 	fs.StringVar(&req.DocumentRoot, "document-root", req.DocumentRoot, "request document root")
 	fs.StringVar(&req.Body, "body", req.Body, "request body")
 	fs.StringVar(&env, "env", env, "request env as json")
