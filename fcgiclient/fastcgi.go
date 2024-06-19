@@ -277,7 +277,8 @@ func (w *streamWriter) Write(p []byte) (int, error) {
 
 func (w *streamWriter) Close() error {
 	// send empty record to close the stream
-	return w.c.writeRecord(w.recType, w.reqId, nil)
+	// return w.c.writeRecord(w.recType, w.reqId, nil)
+	return nil
 }
 
 func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
@@ -295,6 +296,15 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 	}
 	if len(reqStr) > 0 {
 		err = this.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
+		if err != nil {
+			return
+		}
+		err = this.writeRecord(FCGI_STDIN, reqId, nil)
+		if err != nil {
+			return
+		}
+	} else {
+		err = this.writeRecord(FCGI_PARAMS, reqId, nil)
 		if err != nil {
 			return
 		}
