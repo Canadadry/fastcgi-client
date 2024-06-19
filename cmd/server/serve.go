@@ -155,6 +155,9 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 			name := "HTTP_" + strings.Replace(strings.ToUpper(header), "-", "_", -1)
 			env[name] = values[0]
 		}
+		if ct, ok := env["HTTP_CONTENT_TYPE"]; ok {
+			env["CONTENT_TYPE"] = ct
+		}
 
 		conn, err := net.Dial("tcp", srv.FCGIHost)
 		if err != nil {

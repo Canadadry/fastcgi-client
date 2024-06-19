@@ -48,6 +48,10 @@ func Do(host string, req FCGIRequest) error {
 		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
 	}
 
+	if ct, ok := req.Header["HTTP_CONTENT_TYPE"]; ok {
+		req.Header["CONTENT_TYPE"] = ct
+	}
+
 	for name, value := range req.Env {
 		env[name] = value
 	}
