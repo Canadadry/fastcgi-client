@@ -58,10 +58,10 @@ type Server struct {
 }
 
 func respond(w http.ResponseWriter, body string, statusCode int, headers map[string]string) {
-	w.WriteHeader(statusCode)
 	for header, value := range headers {
 		w.Header().Set(header, value)
 	}
+	w.WriteHeader(statusCode)
 	fmt.Fprintf(w, "%s", body)
 }
 
@@ -160,6 +160,7 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 		if err != nil {
 			return nil, fmt.Errorf("cannot read request body: %w", err)
 		}
+		defer conn.Close()
 
 		fcgi := fcgiclient.New(conn)
 		content, stderr, err := fcgi.Request(env, string(rBody))

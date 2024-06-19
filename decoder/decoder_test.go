@@ -90,6 +90,42 @@ func TestParseResponse(t *testing.T) {
 				}, "\n"),
 			},
 		},
+		"cors": {
+			In: []string{
+				"WC1Qb3dlcmVkLUJ5OiBQSFAvOC4zLjgNCkNhY2hlLUNvbnRyb2w6IG1heC1hZ2U9MCwg",
+				"bXVzdC1yZXZhbGlkYXRlLCBwcml2YXRlDQpEYXRlOiBXZWQsIDE5IEp1biAyMDI0IDA3",
+				"OjIxOjExIEdNVA0KVmFyeTogT3JpZ2luDQpBY2Nlc3MtQ29udHJvbC1BbGxvdy1DcmVk",
+				"ZW50aWFsczogdHJ1ZQ0KQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kczogUE9TVCwg",
+				"UFVULCBQQVRDSCwgR0VULCBERUxFVEUNCkFjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRl",
+				"cnM6IGNvbnRlbnQtdHlwZQ0KQWNjZXNzLUNvbnRyb2wtTWF4LUFnZTogMzYwMA0KQWNj",
+				"ZXNzLUNvbnRyb2wtQWxsb3ctT3JpZ2luOiBodHRwczovL3ZlcmlmaWNhdGlvbi5leGVt",
+				"cGxlLmNvbQ0KQ29udGVudC1TZWN1cml0eS1Qb2xpY3k6IGRlZmF1bHQtc3JjICdub25l",
+				"JzsgZnJhbWUtYW5jZXN0b3JzICdub25lJw0KU3RyaWN0LVRyYW5zcG9ydC1TZWN1cml0",
+				"eTogIG1heC1hZ2U9NjMwNzIwMDANClgtQ29udGVudC1UeXBlLU9wdGlvbnM6IG5vc25p",
+				"ZmYNCkNvbnRlbnQtVHlwZTogdGV4dC9odG1sOyBjaGFyc2V0PVVURi04DQpFeHBpcmVz",
+				"OiBXZWQsIDE5IEp1biAyMDI0IDA3OjIxOjExIEdNVA0KDQoAAAAA",
+			},
+			Out: Response{
+				StatusCode: 200,
+				Headers: map[string]string{
+					"X-Powered-By":                     "PHP/8.3.8",
+					"Cache-Control":                    "max-age=0, must-revalidate, private",
+					"Date":                             "Wed, 19 Jun 2024 07:21:11 GMT",
+					"Vary":                             "Origin",
+					"Access-Control-Allow-Credentials": "true",
+					"Access-Control-Allow-Methods":     "POST, PUT, PATCH, GET, DELETE",
+					"Access-Control-Allow-Headers":     "content-type",
+					"Access-Control-Max-Age":           "3600",
+					"Access-Control-Allow-Origin":      "https://verification.exemple.com",
+					"Content-Security-Policy":          "default-src 'none'; frame-ancestors 'none'",
+					"Strict-Transport-Security":        "max-age=63072000",
+					"X-Content-Type-Options":           "nosniff",
+					"Content-Type":                     "text/html; charset=UTF-8",
+					"Expires":                          "Wed, 19 Jun 2024 07:21:11 GMT",
+				},
+				Stdout: "\x00\x00\x00\x00",
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
