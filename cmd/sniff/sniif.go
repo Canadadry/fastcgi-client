@@ -83,13 +83,13 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
 	if err != nil {
 		return fmt.Errorf("cannot read request: %w", err)
 	}
+	jsonRawReqs, err1 := json.Marshal(reqs)
+	if err1 != nil {
+		return fmt.Errorf("cannot marshal raw request to json: %w", err1)
+	}
+	log.Println("Requests raw", string(jsonRawReqs))
 	decoded, err := decoder.DecodeRequest(reqs)
 	if err != nil {
-		jsonReqs, err1 := json.Marshal(reqs)
-		if err1 != nil {
-			return fmt.Errorf("cannot marshal raw request to json: %w", err1)
-		}
-		log.Println("Requests raw", string(jsonReqs))
 		return fmt.Errorf("cannot decode request: %w", err)
 	}
 	jsonReqs, err := json.Marshal(decoded)
