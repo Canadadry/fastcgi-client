@@ -294,17 +294,12 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 	if err != nil {
 		return
 	}
+	err = this.writeRecord(FCGI_PARAMS, reqId, nil)
+	if err != nil {
+		return
+	}
 	if len(reqStr) > 0 {
 		err = this.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
-		if err != nil {
-			return
-		}
-		err = this.writeRecord(FCGI_STDIN, reqId, nil)
-		if err != nil {
-			return
-		}
-	} else {
-		err = this.writeRecord(FCGI_PARAMS, reqId, nil)
 		if err != nil {
 			return
 		}

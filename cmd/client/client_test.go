@@ -188,7 +188,7 @@ func TestDo(t *testing.T) {
 				DocumentRoot: dir,
 				Method:       "POST",
 				Url:          MustUrl(t, "/api/auth-tokens"),
-				Body:         `{"login":admin","password":"azertyu"}`,
+				Body:         `{"login":admin","password":"azertyu"}` + "\n",
 				Index:        "index.php",
 				Env:          map[string]string{},
 				Header: map[string]string{
@@ -209,7 +209,7 @@ func TestDo(t *testing.T) {
 					"<p>POST</p>",
 					"<h1>Headers:</h1>",
 					"<pre>",
-					"Content-Length: 37",
+					"Content-Length: 38",
 					"Content-Type: application/json",
 					"</pre>",
 					"<h1>Body:</h1>",
