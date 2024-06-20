@@ -1,6 +1,7 @@
 package fcgiclient
 
 import (
+	"app/fcgi/fcgiprotocol"
 	"net"
 	"net/url"
 	"os"
@@ -53,7 +54,7 @@ func TestDo(t *testing.T) {
 		}
 	}()
 
-	// tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
+	tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
 
 	tests := map[string]struct {
 		In       Request
@@ -231,42 +232,41 @@ func TestDo(t *testing.T) {
 				Stderr: "",
 			},
 		},
-		// "body over fcgiprotocol.MaxWrite": {
-		// 	In: Request{
-		// 		DocumentRoot: dir,
-		// 		Method:       "GET",
-		// 		Url:          MustUrl(t, "/"),
-		// 		Body:         "test: " + tooLongString + "\n",
-		// 		Index:        "index.php",
-		// 		Env:          map[string]string{},
-		// 		Header:       map[string]string{},
-		// 	},
-		// 	Expected: Response{
-		// 		StatusCode: 200,
-		// 		Header: map[string]string{
-		// 			"Content-type":  "text/html; charset=UTF-8",
-		// 			"X-Powered-By":  "PHP/8.3.7",
-		// 			"X-Request-Uri": "/",
-		// 		},
-		// 		Stdout: strings.Join([]string{
-		// 			"<h1>Requested URL:</h1>",
-		// 			"<p>/</p>",
-		// 			"<h1>Request Method:</h1>",
-		// 			"<p>GET</p>",
-		// 			"<h1>Headers:</h1>",
-		// 			"<pre>",
-		// 			"Content-Length: 9",
-		// 			"Content-Type: text/plain; charset=utf-8",
-
-		// 			"</pre>",
-		// 			"<h1>Body:</h1>",
-		// 			"<pre>",
-		// 			"test: " + tooLongString,
-		// 			"</pre>",
-		// 		}, "\n"),
-		// 		Stderr: "",
-		// 	},
-		// },
+		"body over fcgiprotocol.MaxWrite": {
+			In: Request{
+				DocumentRoot: dir,
+				Method:       "GET",
+				Url:          MustUrl(t, "/"),
+				Body:         "test: " + tooLongString + "\n",
+				Index:        "index.php",
+				Env:          map[string]string{},
+				Header:       map[string]string{},
+			},
+			Expected: Response{
+				StatusCode: 200,
+				Header: map[string]string{
+					"Content-type":  "text/html; charset=UTF-8",
+					"X-Powered-By":  "PHP/8.3.7",
+					"X-Request-Uri": "/",
+				},
+				Stdout: strings.Join([]string{
+					"<h1>Requested URL:</h1>",
+					"<p>/</p>",
+					"<h1>Request Method:</h1>",
+					"<p>GET</p>",
+					"<h1>Headers:</h1>",
+					"<pre>",
+					"Content-Length: 9",
+					"Content-Type: text/plain; charset=utf-8",
+					"</pre>",
+					"<h1>Body:</h1>",
+					"<pre>",
+					"test: " + tooLongString,
+					"</pre>",
+				}, "\n"),
+				Stderr: "",
+			},
+		},
 	}
 
 	for name, tt := range tests {

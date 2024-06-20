@@ -57,9 +57,7 @@ func Do(rw io.ReadWriter, req Request) (Response, error) {
 		env[name] = value
 	}
 
-	fcgi := fcgiprotocol.New(rw)
-
-	content, stderr, err := fcgi.Request(env, req.Body)
+	content, stderr, err := fcgiprotocol.Do(rw, env, req.Body)
 
 	if err != nil {
 		return Response{}, fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
