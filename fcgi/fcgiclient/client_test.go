@@ -39,9 +39,10 @@ func MustUrl(t *testing.T, rawUrl string) *url.URL {
 }
 
 func buildAStringOfLen(n int) string {
+	dict := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = 'A'
+		b[i] = dict[i%len(dict)]
 	}
 	return string(b)
 }
@@ -256,7 +257,7 @@ func TestDo(t *testing.T) {
 					"<p>GET</p>",
 					"<h1>Headers:</h1>",
 					"<pre>",
-					"Content-Length: 9",
+					"Content-Length: 65542",
 					"Content-Type: text/plain; charset=utf-8",
 					"</pre>",
 					"<h1>Body:</h1>",
