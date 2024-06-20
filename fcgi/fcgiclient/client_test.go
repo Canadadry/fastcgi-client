@@ -1,6 +1,7 @@
-package client
+package fcgiclient
 
 import (
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -45,11 +46,11 @@ func TestDo(t *testing.T) {
 	}()
 
 	tests := map[string]struct {
-		In       FCGIRequest
-		Expected FCGIResponse
+		In       Request
+		Expected Response
 	}{
 		"main script not found": {
-			In: FCGIRequest{
+			In: Request{
 				DocumentRoot: dir,
 				Method:       "GET",
 				Url:          MustUrl(t, "/"),
@@ -58,7 +59,7 @@ func TestDo(t *testing.T) {
 				Env:          map[string]string{},
 				Header:       map[string]string{},
 			},
-			Expected: FCGIResponse{
+			Expected: Response{
 				StatusCode: 404,
 				Header: map[string]string{
 					"Content-type": "text/html; charset=UTF-8",
@@ -70,7 +71,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		"basic": {
-			In: FCGIRequest{
+			In: Request{
 				DocumentRoot: dir,
 				Method:       "GET",
 				Url:          MustUrl(t, "/"),
@@ -79,7 +80,7 @@ func TestDo(t *testing.T) {
 				Env:          map[string]string{},
 				Header:       map[string]string{},
 			},
-			Expected: FCGIResponse{
+			Expected: Response{
 				StatusCode: 200,
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
@@ -104,7 +105,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		"basic with status code": {
-			In: FCGIRequest{
+			In: Request{
 				DocumentRoot: dir,
 				Method:       "GET",
 				Url:          MustUrl(t, "/?status_code=403"),
@@ -113,7 +114,7 @@ func TestDo(t *testing.T) {
 				Env:          map[string]string{},
 				Header:       map[string]string{},
 			},
-			Expected: FCGIResponse{
+			Expected: Response{
 				StatusCode: 403,
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
@@ -141,7 +142,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		"option cors request": {
-			In: FCGIRequest{
+			In: Request{
 				DocumentRoot: dir,
 				Method:       "OPTIONS",
 				Url:          MustUrl(t, "/api/users"),
@@ -155,7 +156,7 @@ func TestDo(t *testing.T) {
 					"Origin":                         "https://verification.exemple.com/",
 				},
 			},
-			Expected: FCGIResponse{
+			Expected: Response{
 				StatusCode: 200,
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
@@ -184,7 +185,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		"post json with body": {
-			In: FCGIRequest{
+			In: Request{
 				DocumentRoot: dir,
 				Method:       "POST",
 				Url:          MustUrl(t, "/api/auth-tokens"),
@@ -195,7 +196,7 @@ func TestDo(t *testing.T) {
 					"Content-type": "application/json",
 				},
 			},
-			Expected: FCGIResponse{
+			Expected: Response{
 				StatusCode: 200,
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
@@ -224,7 +225,12 @@ func TestDo(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result, err := Do("127.0.0.1:9000", tt.In)
+			conn, err := net.Dial("tcp", "127.0.0.1:9000")
+			if err != nil {
+				t.Fatalf("cannot dial php server : %v", err)
+			}
+			defer conn.Close()
+			result, err := Do(conn, tt.In)
 			if err != nil {
 				t.Fatalf("failed running request : %v", err)
 			}

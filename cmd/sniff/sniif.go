@@ -1,8 +1,7 @@
 package sniff
 
 import (
-	"app/decoder"
-	"app/fcgiclient"
+	"app/fcgi/fcgiprotocol"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -88,7 +87,7 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
 		return fmt.Errorf("cannot marshal raw request to json: %w", err1)
 	}
 	log.Println("Requests raw", string(jsonRawReqs))
-	decoded, err := decoder.DecodeRequest(reqs)
+	decoded, err := fcgiprotocol.DecodeRequest(reqs)
 	if err != nil {
 		return fmt.Errorf("cannot decode request: %w", err)
 	}
@@ -131,12 +130,12 @@ func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
 	return nil
 }
 
-func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
-	reccords := make([]fcgiclient.Record, 0, 3)
+func readFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
+	reccords := make([]fcgiprotocol.Record, 0, 3)
 
 	// recive untill empty FCGI_STDIN or EOF ?
 	for {
-		rec := fcgiclient.Record{}
+		rec := fcgiprotocol.Record{}
 		err := rec.Read(r)
 		if err != nil && err != io.EOF {
 			return nil, err
@@ -145,10 +144,10 @@ func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
 		if err == io.EOF {
 			break
 		}
-		if rec.Header.Type == fcgiclient.FCGI_STDIN && len(rec.Content()) == 0 {
+		if rec.Header.Type == fcgiprotocol.FCGI_STDIN && len(rec.Content()) == 0 {
 			break
 		}
-		if rec.Header.Type == fcgiclient.FCGI_PARAMS && len(rec.Content()) == 0 {
+		if rec.Header.Type == fcgiprotocol.FCGI_PARAMS && len(rec.Content()) == 0 {
 			break
 		}
 	}
@@ -156,12 +155,12 @@ func readFullRequest(r io.Reader) ([]fcgiclient.Record, error) {
 	return reccords, nil
 }
 
-func readFullResponse(r io.Reader) ([]fcgiclient.Record, error) {
-	reccords := make([]fcgiclient.Record, 0, 3)
+func readFullResponse(r io.Reader) ([]fcgiprotocol.Record, error) {
+	reccords := make([]fcgiprotocol.Record, 0, 3)
 
 	// recive untill EOF or FCGI_END_REQUEST
 	for {
-		rec := fcgiclient.Record{}
+		rec := fcgiprotocol.Record{}
 		err := rec.Read(r)
 		if err != nil && err != io.EOF {
 			return nil, err
@@ -170,7 +169,7 @@ func readFullResponse(r io.Reader) ([]fcgiclient.Record, error) {
 		if err == io.EOF {
 			break
 		}
-		if rec.Header.Type == fcgiclient.FCGI_END_REQUEST {
+		if rec.Header.Type == fcgiprotocol.FCGI_END_REQUEST {
 			break
 		}
 	}

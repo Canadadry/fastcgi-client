@@ -1,13 +1,4 @@
-// Copyright 2012 Junqing Tan <ivan@mysqlab.net> and The Go Authors
-// Use of this source code is governed by a BSD-style
-// Part of source code is from Go fcgi package
-
-// Fix bug: Can't recive more than 1 record untill FCGI_END_REQUEST 2012-09-15
-// By: wofeiwo
-//
-// forked from https://github.com/beberlei/fastcgi-serv
-
-package fcgiclient
+package fcgiprotocol
 
 import (
 	"bufio"
@@ -113,13 +104,13 @@ func (r *Record) Content() []byte {
 
 type FCGIClient struct {
 	mutex     sync.Mutex
-	rwc       io.ReadWriteCloser
+	rwc       io.ReadWriter
 	h         Header
 	buf       bytes.Buffer
 	keepAlive bool
 }
 
-func New(rwc io.ReadWriteCloser) *FCGIClient {
+func New(rwc io.ReadWriter) *FCGIClient {
 	return &FCGIClient{
 		rwc:       rwc,
 		keepAlive: false,
@@ -284,7 +275,6 @@ func (w *streamWriter) Close() error {
 func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
 
 	var reqId uint16 = 1
-	defer this.rwc.Close()
 
 	err = this.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
 	if err != nil {

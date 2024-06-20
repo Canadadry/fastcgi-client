@@ -3,8 +3,7 @@
 package server
 
 import (
-	"app/decoder"
-	"app/fcgiclient"
+	"app/fcgi/fcgiclient"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -135,50 +134,32 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 			return nil, fmt.Errorf("cannot read request body: %v", err)
 		}
 
-		env := map[string]string{
-			"CONTENT_LENGTH":    fmt.Sprintf("%d", len(rBody)),
-			"CONTENT_TYPE":      http.DetectContentType([]byte(rBody[:min(len(rBody), 512)])),
-			"DOCUMENT_URI":      r.URL.Path,
-			"GATEWAY_INTERFACE": "CGI/1.1",
-			"REQUEST_SCHEME":    "http",
-			"SERVER_PROTOCOL":   "HTTP/1.1",
-			"REQUEST_METHOD":    r.Method,
-			"SCRIPT_FILENAME":   srv.DocumentRoot + "/" + srv.Index,
-			"SCRIPT_NAME":       r.URL.Path,
-			"SERVER_SOFTWARE":   "go / fcgiclient ",
-			"DOCUMENT_ROOT":     srv.DocumentRoot,
-			"QUERY_STRING":      r.URL.RawQuery,
-			"REQUEST_URI":       r.URL.Path,
+		req := fcgiclient.Request{
+			DocumentRoot: srv.DocumentRoot,
+			Index:        srv.Index,
+			Method:       r.Method,
+			Url:          r.URL,
+			Body:         string(rBody),
 		}
 
-		for header, values := range r.Header {
-			name := "HTTP_" + strings.Replace(strings.ToUpper(header), "-", "_", -1)
-			env[name] = values[0]
-		}
-		if ct, ok := env["HTTP_CONTENT_TYPE"]; ok {
-			env["CONTENT_TYPE"] = ct
+		for name, values := range r.Header {
+			req.Header[name] = values[0]
 		}
 
 		conn, err := net.Dial("tcp", srv.FCGIHost)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read request body: %w", err)
+			return nil, fmt.Errorf("cannot dial php server : %w", err)
 		}
 		defer conn.Close()
 
-		fcgi := fcgiclient.New(conn)
-		content, stderr, err := fcgi.Request(env, string(rBody))
+		rsp, err := fcgiclient.Do(conn, req)
 		if err != nil {
-			return stderr, fmt.Errorf("while request php-fpm %s : %w", r.URL.Path, err)
+			return nil, fmt.Errorf("cannot make request to php : %v", err)
 		}
 
-		rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
-		if err != nil {
-			return stderr, fmt.Errorf("cannot decode response of %s : %w", r.URL.Path, err)
-		}
+		respond(w, rsp.Stdout, rsp.StatusCode, rsp.Header)
 
-		respond(w, rsp.Stdout, rsp.StatusCode, rsp.Headers)
-
-		return stderr, nil
+		return []byte(rsp.Stderr), nil
 	}
 }
 

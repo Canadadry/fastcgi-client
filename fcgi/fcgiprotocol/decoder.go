@@ -1,7 +1,6 @@
-package decoder
+package fcgiprotocol
 
 import (
-	"app/fcgiclient"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -16,10 +15,10 @@ type Request struct {
 	Stdin []byte
 }
 
-func DecodeRequest(input []fcgiclient.Record) (Request, error) {
+func DecodeRequest(input []Record) (Request, error) {
 	decoded := Request{}
 	var err error
-	if input[0].Header.Type != fcgiclient.FCGI_BEGIN_REQUEST {
+	if input[0].Header.Type != FCGI_BEGIN_REQUEST {
 		return Request{}, fmt.Errorf(
 			"request should start with packet 'begin' got %v",
 			input[0].Header.Type,
@@ -29,9 +28,9 @@ func DecodeRequest(input []fcgiclient.Record) (Request, error) {
 	envContent := []byte{}
 	for _, r := range input[1:] {
 		switch r.Header.Type {
-		case fcgiclient.FCGI_PARAMS:
+		case FCGI_PARAMS:
 			envContent = append(envContent, r.Content()...)
-		case fcgiclient.FCGI_STDIN:
+		case FCGI_STDIN:
 			decoded.Stdin = append(decoded.Stdin, r.Content()...)
 		}
 	}

@@ -1,135 +1,22 @@
 package client
 
 import (
-	"app/decoder"
-	"app/fcgiclient"
+	"app/fcgi/fcgiclient"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 )
 
 const Action = "client"
-
-type FCGIRequest struct {
-	Method       string
-	Url          *url.URL
-	Body         string
-	Index        string
-	DocumentRoot string
-	Env          map[string]string
-	Header       map[string]string
-}
-
-type FCGIResponse struct {
-	StatusCode int
-	Header     map[string]string
-	Stdout     string
-	Stderr     string
-}
-
-func Do(host string, req FCGIRequest) (FCGIResponse, error) {
-	env := map[string]string{
-		"CONTENT_LENGTH":    fmt.Sprintf("%d", len(req.Body)),
-		"CONTENT_TYPE":      http.DetectContentType([]byte(req.Body[:min(len(req.Body), 512)])),
-		"DOCUMENT_URI":      req.Url.Path,
-		"GATEWAY_INTERFACE": "CGI/1.1",
-		"REQUEST_SCHEME":    "http",
-		"SERVER_PROTOCOL":   "HTTP/1.1",
-		"REQUEST_METHOD":    req.Method,
-		"SCRIPT_FILENAME":   path.Join(req.DocumentRoot, req.Index),
-		"SCRIPT_NAME":       req.Url.Path,
-		"SERVER_SOFTWARE":   "go / fcgiclient ",
-		"DOCUMENT_ROOT":     req.DocumentRoot,
-		"QUERY_STRING":      req.Url.RawQuery,
-		"REQUEST_URI":       req.Url.Path,
-	}
-
-	for header, values := range req.Header {
-		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
-	}
-
-	if ct, ok := env["HTTP_CONTENT_TYPE"]; ok {
-		env["CONTENT_TYPE"] = ct
-	}
-
-	for name, value := range req.Env {
-		env[name] = value
-	}
-
-	conn, err := net.Dial("tcp", host)
-	if err != nil {
-		return FCGIResponse{}, fmt.Errorf("cannot open conn to php server: %w", err)
-	}
-	fcgi := fcgiclient.New(conn)
-
-	content, stderr, err := fcgi.Request(env, req.Body)
-
-	if err != nil {
-		return FCGIResponse{}, fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
-	}
-
-	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
-	if err != nil {
-		return FCGIResponse{}, fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, string(stderr))
-	}
-
-	return FCGIResponse{
-		StatusCode: rsp.StatusCode,
-		Header:     rsp.Headers,
-		Stdout:     rsp.Stdout,
-		Stderr:     string(stderr),
-	}, nil
-}
-
-func ParseFastCgiResponse(content string) (int, map[string]string, string, error) {
-	var headers map[string]string
-
-	parts := strings.SplitN(content, "\r\n\r\n", 2)
-
-	if len(parts) < 2 {
-		return 502, headers, "", fmt.Errorf("Cannot parse FastCGI Response expect two part got %v \n -%s-", len(parts), content)
-	}
-
-	headerParts := strings.Split(parts[0], ":")
-	body := parts[1]
-	status := 200
-
-	if strings.HasPrefix(headerParts[0], "Status:") {
-		lineParts := strings.SplitN(headerParts[0], " ", 3)
-		status, _ = strconv.Atoi(lineParts[1])
-	}
-
-	for _, line := range headerParts {
-		lineParts := strings.SplitN(line, ":", 2)
-
-		if len(lineParts) < 2 {
-			continue
-		}
-
-		lineParts[1] = strings.TrimSpace(lineParts[1])
-
-		if lineParts[0] == "Status" {
-			continue
-		}
-
-		headers[lineParts[0]] = lineParts[1]
-	}
-
-	return status, headers, body, nil
-}
 
 func Run(args []string) error {
 
 	cwd, _ := os.Getwd()
 	rawUrl := "/"
-	req := FCGIRequest{
+	req := fcgiclient.Request{
 		Method:       "GET",
 		DocumentRoot: cwd,
 		Index:        "index.php",
@@ -178,7 +65,13 @@ func Run(args []string) error {
 		return fmt.Errorf("cannot parse input url : %w", err)
 	}
 
-	resp, err := Do(host, req)
+	conn, err := net.Dial("tcp", host)
+	if err != nil {
+		return fmt.Errorf("cannot dial php server : %w", err)
+	}
+	defer conn.Close()
+
+	resp, err := fcgiclient.Do(conn, req)
 	fmt.Println(resp)
 	return err
 }

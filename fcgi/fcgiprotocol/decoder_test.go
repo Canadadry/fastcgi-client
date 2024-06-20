@@ -1,7 +1,6 @@
-package decoder
+package fcgiprotocol
 
 import (
-	"app/fcgiclient"
 	"bytes"
 	"encoding/base64"
 	"reflect"
@@ -38,7 +37,7 @@ func TestDecodeEnv(t *testing.T) {
 			var buf bytes.Buffer
 
 			// Encode the map
-			err := fcgiclient.BuildPair(&buf, tt.Data)
+			err := BuildPair(&buf, tt.Data)
 			if err != nil {
 				t.Fatalf("writePairs failed: %v", err)
 			}
