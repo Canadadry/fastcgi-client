@@ -56,7 +56,7 @@ func TestDo(t *testing.T) {
 	}()
 
 	// tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
-	toolongPairKey := buildAStringOfLen(fcgiprotocol.MaxKeyPairLen)
+	toolongPairKey := buildAStringOfLen(fcgiprotocol.MaxKeyPairLen - len("HTTP_"))
 	// toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxValuePairLen)
 
 	tests := map[string]struct {
