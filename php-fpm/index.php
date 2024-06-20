@@ -6,6 +6,9 @@ if (array_key_exists("status_code", $queries)) {
 	header("Status-Code:" . $queries["status_code"]);
 	header("X-Status-Code: " . $queries["status_code"]);
 }
+
+header("X-Request-Uri: " . $_SERVER["REQUEST_URI"]);
+
 // Display the requested URL
 echo "<h1>Requested URL:</h1>";
 echo "<p>" . $_SERVER["REQUEST_URI"] . "</p>";

@@ -27,7 +27,14 @@ type FCGIRequest struct {
 	Header       map[string]string
 }
 
-func Do(host string, req FCGIRequest) error {
+type FCGIResponse struct {
+	StatusCode int
+	Header     map[string]string
+	Stdout     string
+	Stderr     string
+}
+
+func Do(host string, req FCGIRequest) (FCGIResponse, error) {
 	env := map[string]string{
 		"CONTENT_LENGTH":    fmt.Sprintf("%d", len(req.Body)),
 		"CONTENT_TYPE":      http.DetectContentType([]byte(req.Body[:min(len(req.Body), 512)])),
@@ -58,23 +65,27 @@ func Do(host string, req FCGIRequest) error {
 
 	conn, err := net.Dial("tcp", host)
 	if err != nil {
-		return fmt.Errorf("cannot open conn to php server: %w", err)
+		return FCGIResponse{}, fmt.Errorf("cannot open conn to php server: %w", err)
 	}
 	fcgi := fcgiclient.New(conn)
 
 	content, stderr, err := fcgi.Request(env, req.Body)
 
 	if err != nil {
-		return fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
+		return FCGIResponse{}, fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
 	}
 
 	rsp, err := decoder.ParseResponse(fmt.Sprintf("%s", content))
 	if err != nil {
-		return fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, string(stderr))
+		return FCGIResponse{}, fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, string(stderr))
 	}
 
-	fmt.Println("statusCode", rsp.StatusCode, "headers", rsp.Headers, "body", rsp.Stdout, "stderr", string(stderr))
-	return nil
+	return FCGIResponse{
+		StatusCode: rsp.StatusCode,
+		Header:     rsp.Headers,
+		Stdout:     rsp.Stdout,
+		Stderr:     string(stderr),
+	}, nil
 }
 
 func ParseFastCgiResponse(content string) (int, map[string]string, string, error) {
@@ -167,5 +178,7 @@ func Run(args []string) error {
 		return fmt.Errorf("cannot parse input url : %w", err)
 	}
 
-	return Do(host, req)
+	resp, err := Do(host, req)
+	fmt.Println(resp)
+	return err
 }

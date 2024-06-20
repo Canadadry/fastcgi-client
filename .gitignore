@@ -1,1 +1,3 @@
 build
+php-fpm/php-fpm
+php-fpm/log
