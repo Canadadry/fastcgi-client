@@ -47,8 +47,10 @@ const (
 )
 
 const (
-	MaxWrite = 65535
-	MaxPad   = 255
+	MaxWrite        = 65535
+	MaxKeyPairLen   = 255
+	MaxValuePairLen = 255
+	MaxPad          = 255
 )
 
 type Header struct {

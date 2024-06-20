@@ -85,10 +85,13 @@ func writeBeginRequest(w recordWriter, reqId uint16) error {
 
 func writePairs(w recordWriter, reqId uint16, pairs map[string]string) error {
 	buf := &bytes.Buffer{}
-	BuildPair(buf, pairs)
-	err := w(FCGI_PARAMS, reqId, buf.Bytes())
+	err := BuildPair(buf, pairs)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot build pair : %w", err)
+	}
+	err = w(FCGI_PARAMS, reqId, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("cannot write pair : %w", err)
 	}
 	return w(FCGI_PARAMS, reqId, nil)
 }
