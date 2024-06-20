@@ -1,10 +1,13 @@
 package fcgiprotocol
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 )
@@ -50,7 +53,7 @@ const (
 )
 
 const (
-	MaxWrite = 6553500 // maximum record body
+	MaxWrite = 65535 // maximum record body
 	MaxPad   = 255
 )
 
@@ -118,6 +121,7 @@ func New(rwc io.ReadWriter) *FCGIClient {
 }
 
 func (this *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (err error) {
+	fmt.Printf("writeRecord of %d with len %d uint16(%d) : %s\n", recType, len(content), uint16(len(content)), base64.StdEncoding.EncodeToString(compress(content)))
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 	this.buf.Reset()
@@ -133,6 +137,16 @@ func (this *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte)
 	}
 	_, err = this.rwc.Write(this.buf.Bytes())
 	return err
+}
+
+func compress(content []byte) []byte {
+
+	buf := bytes.Buffer{}
+	zipWriter := zip.NewWriter(&buf)
+	zipFile, _ := zipWriter.Create("body.bin")
+	_, _ = zipFile.Write(content)
+	_ = zipWriter.Close()
+	return buf.Bytes()
 }
 
 func (this *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
@@ -186,29 +200,6 @@ func BuildPair(w io.Writer, pairs map[string]string) error {
 		}
 	}
 	return nil
-}
-
-func readSize(s []byte) (uint32, int) {
-	if len(s) == 0 {
-		return 0, 0
-	}
-	size, n := uint32(s[0]), 1
-	if size&(1<<7) != 0 {
-		if len(s) < 4 {
-			return 0, 0
-		}
-		n = 4
-		size = binary.BigEndian.Uint32(s)
-		size &^= 1 << 31
-	}
-	return size, n
-}
-
-func readString(s []byte, size uint32) string {
-	if size > uint32(len(s)) {
-		return ""
-	}
-	return string(s[:size])
 }
 
 func encodeSize(b []byte, size uint32) int {
@@ -272,41 +263,44 @@ func (w *streamWriter) Close() error {
 	return nil
 }
 
-func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
+func (this *FCGIClient) Request(env map[string]string, reqStr string) ([]byte, []byte, error) {
 
 	var reqId uint16 = 1
 
-	err = this.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
+	err := this.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
 	if err != nil {
-		return
+		return nil, nil, fmt.Errorf("cannot write begin request")
 	}
 	err = this.writePairs(FCGI_PARAMS, reqId, env)
 	if err != nil {
-		return
+		return nil, nil, fmt.Errorf("cannot write param request : %w", err)
 	}
 	err = this.writeRecord(FCGI_PARAMS, reqId, nil)
 	if err != nil {
-		return
+		return nil, nil, fmt.Errorf("cannot write end param request : %w", err)
 	}
 	if len(reqStr) > 0 {
 		err = this.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
 		if err != nil {
-			return
+			return nil, nil, fmt.Errorf("cannot write stdin request : %w", err)
 		}
 	}
 
+	fmt.Printf("finish sending request\n")
+
 	rec := &Record{}
-	var err1 error
+	var retout, reterr []byte
 
 	// recive untill EOF or FCGI_END_REQUEST
 	for {
-		err1 = rec.Read(this.rwc)
-		if err1 != nil {
-			if err1 != io.EOF {
-				err = err1
+		err := rec.Read(this.rwc)
+		if err != nil {
+			if err != io.EOF {
+				return retout, reterr, fmt.Errorf("cannot read from server : %w", err)
 			}
 			break
 		}
+		fmt.Printf("reading of %d : %s\n", rec.Header.Type, base64.StdEncoding.EncodeToString(compress(rec.Content())))
 		switch {
 		case rec.Header.Type == FCGI_STDOUT:
 			retout = append(retout, rec.Content()...)
@@ -319,5 +313,5 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 		}
 	}
 
-	return
+	return retout, reterr, nil
 }
