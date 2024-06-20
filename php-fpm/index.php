@@ -20,8 +20,11 @@ echo "<p>" . $_SERVER["REQUEST_METHOD"] . "</p>\n";
 // Display the headers
 echo "<h1>Headers:</h1>\n";
 echo "<pre>\n";
-foreach (getallheaders() as $name => $value) {
-	echo "$name: $value\n";
+$h = getallheaders();
+$hKeys = array_keys($h);
+asort($hKeys);
+foreach ($hKeys as $key) {
+	echo "$key: $h[$key]\n";
 }
 echo "</pre>\n";
 
