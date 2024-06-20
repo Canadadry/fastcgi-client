@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -13,9 +14,9 @@ import (
 func runPhpFpmServer(t *testing.T) (string, func() error) {
 	t.Helper()
 	cwd, _ := os.Getwd()
-	t.Log(cwd)
 	cwd = path.Join(cwd, "../../php-fpm")
-	t.Log(cwd)
+	t.Logf("dir is %s", cwd)
+	// binary can be downloaded from https://dl.static-php.dev/static-php-cli/common/
 	cmd := exec.Command("./php-fpm", "-y", path.Join(cwd, "php-fpm.conf"), "-p", cwd)
 	cmd.Dir = cwd
 	err := cmd.Start()
@@ -47,7 +48,7 @@ func TestDo(t *testing.T) {
 		In       FCGIRequest
 		Expected FCGIResponse
 	}{
-		"main stript not found": {
+		"main script not found": {
 			In: FCGIRequest{
 				DocumentRoot: dir,
 				Method:       "GET",
@@ -66,6 +67,40 @@ func TestDo(t *testing.T) {
 				},
 				Stdout: "File not found.\n",
 				Stderr: "Primary script unknown",
+			},
+		},
+		"basic": {
+			In: FCGIRequest{
+				DocumentRoot: dir,
+				Method:       "GET",
+				Url:          MustUrl(t, "/"),
+				Body:         "",
+				Index:        "index.php",
+				Env:          map[string]string{},
+				Header:       map[string]string{},
+			},
+			Expected: FCGIResponse{
+				StatusCode: 200,
+				Header: map[string]string{
+					"Content-type":  "text/html; charset=UTF-8",
+					"X-Powered-By":  "PHP/8.3.7",
+					"X-Request-Uri": "/",
+				},
+				Stdout: strings.Join([]string{
+					"<h1>Requested URL:</h1>",
+					"<p>/</p>",
+					"<h1>Request Method:</h1>",
+					"<p>GET</p>",
+					"<h1>Headers:</h1>",
+					"<pre>",
+					"Content-Type: text/plain; charset=utf-8",
+					"Content-Length: 0",
+					"</pre>",
+					"<h1>Body:</h1>",
+					"<pre>",
+					"</pre>",
+				}, "\n"),
+				Stderr: "",
 			},
 		},
 	}

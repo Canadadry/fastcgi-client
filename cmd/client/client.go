@@ -43,7 +43,7 @@ func Do(host string, req FCGIRequest) (FCGIResponse, error) {
 		"REQUEST_SCHEME":    "http",
 		"SERVER_PROTOCOL":   "HTTP/1.1",
 		"REQUEST_METHOD":    req.Method,
-		"SCRIPT_FILENAME":   path.Join(req.DocumentRoot + req.Index),
+		"SCRIPT_FILENAME":   path.Join(req.DocumentRoot, req.Index),
 		"SCRIPT_NAME":       req.Url.Path,
 		"SERVER_SOFTWARE":   "go / fcgiclient ",
 		"DOCUMENT_ROOT":     req.DocumentRoot,
@@ -55,8 +55,8 @@ func Do(host string, req FCGIRequest) (FCGIResponse, error) {
 		env["HTTP_"+strings.Replace(strings.ToUpper(header), "-", "_", -1)] = values
 	}
 
-	if ct, ok := req.Header["HTTP_CONTENT_TYPE"]; ok {
-		req.Header["CONTENT_TYPE"] = ct
+	if ct, ok := env["HTTP_CONTENT_TYPE"]; ok {
+		env["CONTENT_TYPE"] = ct
 	}
 
 	for name, value := range req.Env {
