@@ -37,7 +37,7 @@ func writeRequest(w recordWriter, reqId uint16, env map[string]string, body stri
 		return fmt.Errorf("cant build pair : %w", err)
 	}
 	if buf.Len() > MaxPairLen {
-		return fmt.Errorf("build pair len of (%d) exceed MaxPairLen of (%d)", buf.Len(), MaxPairLen)
+		return fmt.Errorf("build pair len of (%d) exceed MaMaxPairLen of (%d)", buf.Len(), MaxPairLen)
 	}
 
 	fmt.Println("writeBeginRequest")
