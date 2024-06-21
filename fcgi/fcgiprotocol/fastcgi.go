@@ -3,7 +3,6 @@ package fcgiprotocol
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -12,8 +11,6 @@ import (
 // for padding so we don't have to allocate all the time
 // not synchronized because we don't care what the contents are
 var pad [MaxPad]byte
-
-var DebugLog io.Writer
 
 type recordWriter func(recType uint8, reqId uint16, content []byte) error
 
@@ -39,10 +36,8 @@ func writeRequest(w recordWriter, reqId uint16, env map[string]string, body stri
 		return fmt.Errorf("cant build pair : %w", err)
 	}
 	if buf.Len() > MaxPairLen {
-		if DebugLog != nil {
-			fmt.Fprintf(DebugLog, "pairs : %s\n", base64.StdEncoding.EncodeToString(buf.Bytes()))
-		}
-		return fmt.Errorf("build pair len of (%d) exceed MaMaxPairLen of (%d)", buf.Len(), MaxPairLen)
+		//fmt.Printf("pairs : %s\n", base64.StdEncoding.EncodeToString(buf.Bytes()))
+		return fmt.Errorf("build pair len exceed MaxPairLen of (%d)", MaxPairLen)
 	}
 
 	err = writeBeginRequest(w, reqId)
@@ -111,9 +106,7 @@ func writeStdin(w recordWriter, reqId uint16, body []byte) error {
 
 func rawRecordWriter(w io.Writer) recordWriter {
 	return func(recType uint8, reqId uint16, content []byte) (err error) {
-		if DebugLog != nil {
-			fmt.Fprintf(DebugLog, "writeRecord of %d : %s\n", recType, base64.StdEncoding.EncodeToString(content))
-		}
+		//fmt.Fprintf("writeRecord of %d : %s\n", recType, base64.StdEncoding.EncodeToString(content))
 		h := NewHeader(recType, reqId, len(content))
 		if err := binary.Write(w, binary.BigEndian, h); err != nil {
 			return err
