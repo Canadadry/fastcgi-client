@@ -4,15 +4,14 @@ package server
 
 import (
 	"app/fcgi/fcgiclient"
-	"encoding/json"
+	"app/pkg/http/handler"
+	"app/pkg/http/middleware"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
-	"strings"
-	"time"
 )
 
 const Action = "server"
@@ -37,98 +36,35 @@ func Run(args []string) error {
 		return fmt.Errorf("cannot parse argument : %w", err)
 	}
 
-	srv.StaticHandler = http.NewServeMux()
-	srv.StaticHandler.Handle("/", http.FileServer(http.Dir(srv.DocumentRoot)))
-
 	fmt.Printf("Listening on http://%s\n", listen)
 	fmt.Printf("Document root is %s\n", srv.DocumentRoot)
 	fmt.Printf("Press Ctrl-C to quit.\n")
 
-	http.HandleFunc("/", HandleWithLogAndError(handler(srv)))
+	http.HandleFunc("/", middleware.HandleWithLogAndError(handle(srv)))
 	http.ListenAndServe(listen, nil)
 	return nil
 }
 
 type Server struct {
-	DocumentRoot  string
-	Index         string
-	StaticHandler *http.ServeMux
-	FCGIHost      string
+	DocumentRoot string
+	Index        string
+	FCGIHost     string
 }
 
-func respond(w http.ResponseWriter, body string, statusCode int, headers map[string]string) {
-	for header, value := range headers {
-		w.Header().Set(header, value)
-	}
-	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, "%s", body)
-}
-
-func HandleWithLogAndError(next func(w http.ResponseWriter, r *http.Request) ([]byte, error)) func(w http.ResponseWriter, r *http.Request) {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		ww := &wrapWriter{w: rw, statusCode: http.StatusOK}
-		startedAt := time.Now()
-		stderr, err := next(ww, r)
-		endedAt := time.Now()
-		logLine := struct {
-			At           time.Time
-			Level        string
-			Method       string
-			URL          string
-			Status       int
-			Bytes        int
-			Elapsed      string
-			ErrorMessage string
-			Stderr       []byte
-		}{
-			At:           startedAt,
-			Level:        "trace",
-			Method:       r.Method,
-			URL:          r.URL.String(),
-			Status:       ww.statusCode,
-			Bytes:        ww.byteWritten,
-			Elapsed:      fmt.Sprintf("%v", endedAt.Sub(startedAt)),
-			ErrorMessage: "",
-			Stderr:       stderr,
-		}
-		if len(stderr) > 0 {
-			logLine.Level = "error"
-		}
-		if logLine.Status >= 500 {
-			logLine.Level = "error"
-		}
-		if err != nil {
-			logLine.Level = "error"
-			logLine.ErrorMessage = err.Error()
-			respond(rw, "server error", 500, nil)
-		}
-		_ = json.NewEncoder(os.Stdout).Encode(logLine)
-	}
-}
-
-func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	staticHandler := func(w http.ResponseWriter, r *http.Request) bool {
-		filename := srv.DocumentRoot + r.URL.Path
-		if r.URL.Path == "/.env" || r.URL.Path == "/" || r.URL.Path == "" {
-			filename = srv.DocumentRoot + "/" + srv.Index
-		}
-		_, err := os.Stat(filename)
-		if err == nil && !strings.HasSuffix(filename, ".php") {
-			srv.StaticHandler.ServeHTTP(w, r)
-			return true
-		}
-		if err != nil && !os.IsNotExist(err) {
-			fmt.Printf("cannot stat %s : %v\n", filename, err)
-			respond(w, "server error", 500, nil)
-			return true
-		}
-		return false
-	}
+func handle(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	sh := handler.Static(srv.DocumentRoot, srv.Index)
+	fh := fcgiHandler(srv)
 	return func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-		defer r.Body.Close()
-		if staticHandler(w, r) {
+		if ok := sh(w, r); ok {
 			return nil, nil
 		}
+		return fh(w, r)
+	}
+}
+
+func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	return func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+		defer r.Body.Close()
 		rBody, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read request body: %v", err)
@@ -140,6 +76,8 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 			Method:       r.Method,
 			Url:          r.URL,
 			Body:         string(rBody),
+			Header:       map[string]string{},
+			Env:          map[string]string{},
 		}
 
 		for name, values := range r.Header {
@@ -157,27 +95,8 @@ func handler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, e
 			return nil, fmt.Errorf("cannot make request to php : %v", err)
 		}
 
-		respond(w, rsp.Stdout, rsp.StatusCode, rsp.Header)
+		middleware.Respond(w, rsp.Stdout, rsp.StatusCode, rsp.Header)
 
 		return []byte(rsp.Stderr), nil
 	}
-}
-
-type wrapWriter struct {
-	w           http.ResponseWriter
-	statusCode  int
-	byteWritten int
-}
-
-func (ww *wrapWriter) Header() http.Header {
-	return ww.w.Header()
-}
-func (ww *wrapWriter) Write(b []byte) (int, error) {
-	n, err := ww.w.Write(b)
-	ww.byteWritten += n
-	return n, err
-}
-func (ww *wrapWriter) WriteHeader(statusCode int) {
-	ww.statusCode = statusCode
-	ww.w.WriteHeader(statusCode)
 }
