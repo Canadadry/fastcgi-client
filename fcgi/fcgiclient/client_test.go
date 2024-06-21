@@ -54,7 +54,7 @@ func TestDo(t *testing.T) {
 			t.Fatalf("failed to kill process: %v", err)
 		}
 	}()
-	//fcgiprotocol.DebugLog = os.Stdout
+	fcgiprotocol.DebugLog = os.Stdout
 	tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
 	toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxPairLen)
 
