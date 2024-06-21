@@ -54,7 +54,6 @@ func TestDo(t *testing.T) {
 			t.Fatalf("failed to kill process: %v", err)
 		}
 	}()
-	//fcgiprotocol.DebugLog = os.Stdout
 	tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
 	toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxPairLen)
 
@@ -283,7 +282,7 @@ func TestDo(t *testing.T) {
 				},
 			},
 			Expected: Response{},
-			Error:    "cannot send fcgi   request: cant write req : build pair len of (65949) exceed MaMaxPairLen of (65535) : stderr ''",
+			Error:    "cannot send fcgi request: cant write req : build pair len exceed MaxPairLen of (65535) : stderr ''",
 		},
 	}
 
