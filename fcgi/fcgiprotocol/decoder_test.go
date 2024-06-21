@@ -37,7 +37,7 @@ func TestDecodeEnv(t *testing.T) {
 			var buf bytes.Buffer
 
 			// Encode the map
-			err := BuildPair(&buf, tt.Data)
+			err := buildPair(&buf, tt.Data)
 			if err != nil {
 				t.Fatalf("writePairs failed: %v", err)
 			}

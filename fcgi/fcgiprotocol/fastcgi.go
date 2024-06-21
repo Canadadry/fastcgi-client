@@ -20,7 +20,7 @@ func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte
 	buf := bufio.NewWriterSize(rwc, MaxWrite)
 	err := writeRequest(streamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cant write req %w", err)
+		return nil, nil, fmt.Errorf("cant write req : %w", err)
 	}
 	err = buf.Flush()
 	if err != nil {
@@ -31,13 +31,22 @@ func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte
 }
 
 func writeRequest(w recordWriter, reqId uint16, env map[string]string, body string) error {
+	buf := &bytes.Buffer{}
+	err := buildPair(buf, env)
+	if err != nil {
+		return fmt.Errorf("cant build pair : %w", err)
+	}
+	if buf.Len() > MaxPairLen {
+		return fmt.Errorf("build pair len of (%d) exceed MaMaxPairLen of (%d)", buf.Len(), MaxPairLen)
+	}
+
 	fmt.Println("writeBeginRequest")
-	err := writeBeginRequest(w, reqId)
+	err = writeBeginRequest(w, reqId)
 	if err != nil {
 		return fmt.Errorf("cant write begin req %w", err)
 	}
 	fmt.Println("writePairs")
-	err = writePairs(w, reqId, env)
+	err = writePairs(w, reqId, buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("cant write pairs req %w", err)
 	}
@@ -83,13 +92,8 @@ func writeBeginRequest(w recordWriter, reqId uint16) error {
 	return w(FCGI_BEGIN_REQUEST, reqId, b[:])
 }
 
-func writePairs(w recordWriter, reqId uint16, pairs map[string]string) error {
-	buf := &bytes.Buffer{}
-	err := BuildPair(buf, pairs)
-	if err != nil {
-		return fmt.Errorf("cannot build pair : %w", err)
-	}
-	err = w(FCGI_PARAMS, reqId, buf.Bytes())
+func writePairs(w recordWriter, reqId uint16, pairs []byte) error {
+	err := w(FCGI_PARAMS, reqId, pairs)
 	if err != nil {
 		return fmt.Errorf("cannot write pair : %w", err)
 	}

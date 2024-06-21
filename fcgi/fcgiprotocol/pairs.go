@@ -2,20 +2,13 @@ package fcgiprotocol
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 )
 
-func BuildPair(w io.Writer, pairs map[string]string) error {
+func buildPair(w io.Writer, pairs map[string]string) error {
 	b := make([]byte, 8)
 
 	for k, v := range pairs {
-		if len(k) > MaxKeyPairLen {
-			return fmt.Errorf("failed a key has len of %d > max len of %d", len(k), MaxKeyPairLen)
-		}
-		if len(v) > MaxValuePairLen {
-			return fmt.Errorf("failed a value has len of %d > max len of %d", len(v), MaxValuePairLen)
-		}
 		n := encodeSize(b, uint32(len(k)))
 		n += encodeSize(b[n:], uint32(len(v)))
 		if _, err := w.Write(b[:n]); err != nil {

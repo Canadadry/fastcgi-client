@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
@@ -56,12 +55,12 @@ func TestDo(t *testing.T) {
 	}()
 
 	// tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
-	toolongPairKey := "A" + buildAStringOfLen(fcgiprotocol.MaxKeyPairLen-len("HTTP_")-1)
-	toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxValuePairLen)
+	toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxPairLen)
 
 	tests := map[string]struct {
 		In       Request
 		Expected Response
+		Error    string
 	}{
 		// "main script not found": {
 		// 	In: Request{
@@ -270,7 +269,7 @@ func TestDo(t *testing.T) {
 		// 		Stderr: "",
 		// 	},
 		// },
-		"key pair len over fcgiprotocol.MaxKeyPairLen": {
+		"too long pair fcgiprotocol.MaxKeyPairLen": {
 			In: Request{
 				DocumentRoot: dir,
 				Method:       "GET",
@@ -279,70 +278,11 @@ func TestDo(t *testing.T) {
 				Index:        "index.php",
 				Env:          map[string]string{},
 				Header: map[string]string{
-					toolongPairKey: "normal value",
+					"Value_Which_Overflow_Pairs": toolongPairValue,
 				},
 			},
-			Expected: Response{
-				StatusCode: 200,
-				Header: map[string]string{
-					"Content-type":  "text/html; charset=UTF-8",
-					"X-Powered-By":  "PHP/8.3.7",
-					"X-Request-Uri": "/",
-				},
-				Stdout: strings.Join([]string{
-					"<h1>Requested URL:</h1>",
-					"<p>/</p>",
-					"<h1>Request Method:</h1>",
-					"<p>GET</p>",
-					"<h1>Headers:</h1>",
-					"<pre>",
-					toolongPairKey + ": normal value",
-					"Content-Length: 0",
-					"Content-Type: text/plain; charset=utf-8",
-					"</pre>",
-					"<h1>Body:</h1>",
-					"<pre>",
-					"</pre>",
-				}, "\n"),
-				Stderr: "",
-			},
-		},
-		"value pair len over fcgiprotocol.MaxKeyPairLen": {
-			In: Request{
-				DocumentRoot: dir,
-				Method:       "GET",
-				Url:          MustUrl(t, "/"),
-				Body:         "",
-				Index:        "index.php",
-				Env:          map[string]string{},
-				Header: map[string]string{
-					"Test": toolongPairValue,
-				},
-			},
-			Expected: Response{
-				StatusCode: 200,
-				Header: map[string]string{
-					"Content-type":  "text/html; charset=UTF-8",
-					"X-Powered-By":  "PHP/8.3.7",
-					"X-Request-Uri": "/",
-				},
-				Stdout: strings.Join([]string{
-					"<h1>Requested URL:</h1>",
-					"<p>/</p>",
-					"<h1>Request Method:</h1>",
-					"<p>GET</p>",
-					"<h1>Headers:</h1>",
-					"<pre>",
-					"Content-Length: 0",
-					"Content-Type: text/plain; charset=utf-8",
-					"Test: " + toolongPairValue,
-					"</pre>",
-					"<h1>Body:</h1>",
-					"<pre>",
-					"</pre>",
-				}, "\n"),
-				Stderr: "",
-			},
+			Expected: Response{},
+			Error:    "cannot send fcgi request: cant write req : build pair len of (65949) exceed MaMaxPairLen of (65535) : stderr ''",
 		},
 	}
 
@@ -354,13 +294,29 @@ func TestDo(t *testing.T) {
 			}
 			defer conn.Close()
 			result, err := Do(conn, tt.In)
-			if err != nil {
-				t.Fatalf("failed running request : %v", err)
-			}
+			testError(t, err, tt.Error)
 			if !reflect.DeepEqual(tt.Expected, result) {
 				t.Fatalf("want \n%#v\ngot \n%#v\n", tt.Expected, result)
 			}
 		})
 	}
+}
 
+func testError(t *testing.T, got error, want string) {
+	t.Helper()
+	if got != nil {
+		if want == "" {
+			t.Fatalf("failed running request : %v", got)
+		} else {
+			if got.Error() != want {
+				t.Fatalf("expected error want '%s' got '%s'", want, got.Error())
+			}
+		}
+	} else {
+		if want != "" {
+			if got.Error() != want {
+				t.Fatalf("expected error %s got nil", want)
+			}
+		}
+	}
 }

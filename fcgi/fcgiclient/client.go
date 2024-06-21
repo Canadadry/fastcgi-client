@@ -60,12 +60,12 @@ func Do(rw io.ReadWriter, req Request) (Response, error) {
 	content, stderr, err := fcgiprotocol.Do(rw, env, req.Body)
 
 	if err != nil {
-		return Response{}, fmt.Errorf("cannot send fcgi request: %w : %s", err, string(stderr))
+		return Response{}, fmt.Errorf("cannot send fcgi request: %w : stderr '%s'", err, string(stderr))
 	}
 
 	rsp, err := fcgiprotocol.ParseResponse(fmt.Sprintf("%s", content))
 	if err != nil {
-		return Response{}, fmt.Errorf("cannot read fcgi reqponse: %w : %s", err, string(stderr))
+		return Response{}, fmt.Errorf("cannot read fcgi reqponse: %w : stderr '%s'", err, string(stderr))
 	}
 
 	return Response{
