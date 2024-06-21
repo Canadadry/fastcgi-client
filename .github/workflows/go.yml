@@ -25,7 +25,7 @@ jobs:
       run: curl -O https://dl.static-php.dev/static-php-cli/common/php-8.3.7-fpm-linux-x86_64.tar.gz
 
     - name: Unpack static php 
-      run: tar -zxvf https://dl.static-php.dev/static-php-cli/common/php-8.3.7-fpm-linux-x86_64.tar.gz
+      run: tar -zxvf php-8.3.7-fpm-linux-x86_64.tar.gz
       
     - name: Copy php  
       run:  mv php-8.3.7-fpm-linux-x86_64/php-fpm php-fpm/php-fpm
