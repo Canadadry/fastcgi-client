@@ -13,6 +13,8 @@ import (
 // not synchronized because we don't care what the contents are
 var pad [MaxPad]byte
 
+var DebugLog io.Writer
+
 type recordWriter func(recType uint8, reqId uint16, content []byte) error
 
 func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte, error) {
@@ -37,25 +39,24 @@ func writeRequest(w recordWriter, reqId uint16, env map[string]string, body stri
 		return fmt.Errorf("cant build pair : %w", err)
 	}
 	if buf.Len() > MaxPairLen {
+		if DebugLog != nil {
+			fmt.Fprintf(DebugLog, "pairs : %s\n", base64.StdEncoding.EncodeToString(buf.Bytes()))
+		}
 		return fmt.Errorf("build pair len of (%d) exceed MaMaxPairLen of (%d)", buf.Len(), MaxPairLen)
 	}
 
-	fmt.Println("writeBeginRequest")
 	err = writeBeginRequest(w, reqId)
 	if err != nil {
 		return fmt.Errorf("cant write begin req %w", err)
 	}
-	fmt.Println("writePairs")
 	err = writePairs(w, reqId, buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("cant write pairs req %w", err)
 	}
-	fmt.Println("writeStdin")
 	err = writeStdin(w, reqId, []byte(body))
 	if err != nil {
 		return fmt.Errorf("cant write stdin req %w", err)
 	}
-	fmt.Println("done")
 	return nil
 }
 
@@ -110,7 +111,9 @@ func writeStdin(w recordWriter, reqId uint16, body []byte) error {
 
 func rawRecordWriter(w io.Writer) recordWriter {
 	return func(recType uint8, reqId uint16, content []byte) (err error) {
-		fmt.Printf("writeRecord of %d : %s\n", recType, base64.StdEncoding.EncodeToString(content))
+		if DebugLog != nil {
+			fmt.Fprintf(DebugLog, "writeRecord of %d : %s\n", recType, base64.StdEncoding.EncodeToString(content))
+		}
 		h := NewHeader(recType, reqId, len(content))
 		if err := binary.Write(w, binary.BigEndian, h); err != nil {
 			return err
@@ -132,7 +135,6 @@ func streamRecordWriter(w io.Writer, maxWrite int) recordWriter {
 			return rw(recType, reqId, nil)
 		}
 		for len(content) > 0 {
-			fmt.Println("loop", len(content))
 			n := len(content)
 			if n > maxWrite {
 				n = maxWrite
