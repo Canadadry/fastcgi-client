@@ -39,7 +39,7 @@ func MustUrl(t *testing.T, rawUrl string) *url.URL {
 }
 
 func buildAStringOfLen(n int) string {
-	dict := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	dict := []rune("abcdefghijklmnopqrstuvwxyz")
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = dict[i%len(dict)]
@@ -56,7 +56,7 @@ func TestDo(t *testing.T) {
 	}()
 
 	// tooLongString := buildAStringOfLen(fcgiprotocol.MaxWrite)
-	toolongPairKey := buildAStringOfLen(fcgiprotocol.MaxKeyPairLen - len("HTTP_"))
+	toolongPairKey := "A" + buildAStringOfLen(fcgiprotocol.MaxKeyPairLen-len("HTTP_")-1)
 	// toolongPairValue := buildAStringOfLen(fcgiprotocol.MaxValuePairLen)
 
 	tests := map[string]struct {
@@ -296,9 +296,9 @@ func TestDo(t *testing.T) {
 					"<p>GET</p>",
 					"<h1>Headers:</h1>",
 					"<pre>",
-					"Content-Length: 65542",
-					"Content-Type: text/plain; charset=utf-8",
 					toolongPairKey + ": normal value",
+					"Content-Length: 0",
+					"Content-Type: text/plain; charset=utf-8",
 					"</pre>",
 					"<h1>Body:</h1>",
 					"<pre>",
