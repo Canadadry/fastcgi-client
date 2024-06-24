@@ -2,14 +2,14 @@ package sniff
 
 import (
 	"app/fcgi/fcgiprotocol"
+	"app/pkg/server"
+	"context"
 	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"sync"
 )
 
 const Action = "sniff"
@@ -35,102 +35,41 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
-
-	listener, err := net.Listen("tcp", proxyAddr)
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		return fmt.Errorf("Error starting TCP proxy: %w", err)
+		log.Fatalf("Error creating listener: %v", err)
 	}
+	defer listener.Close()
 	log.Printf("Proxy listening on %s, forwarding to %s", proxyAddr, phpFpmAddr)
-	runProxy(listener, phpFpmAddr)
+	clientToServer := server.Pipe[[]fcgiprotocol.Record]{
+		Reader: ReadFullRequest,
+		Writer: writeRecords,
+		Decoder: func(data []fcgiprotocol.Record) (interface{}, error) {
+			d, err := fcgiprotocol.DecodeRequest(data)
+			return d, err
+		},
+	}
+	serverToClient := server.Pipe[[]fcgiprotocol.Record]{
+		Reader:  ReadFullResponse,
+		Writer:  writeRecords,
+		Decoder: nil,
+	}
+
+	server.Run(
+		context.Background().Done(),
+		listener,
+		server.Proxy[[]fcgiprotocol.Record](
+			func() (io.ReadWriteCloser, error) {
+				return net.Dial("tcp", phpFpmAddr)
+			},
+			clientToServer,
+			serverToClient,
+		),
+	)
 	return nil
 }
 
-func runProxy(listener net.Listener, phpFpmAddr string) {
-	var wg sync.WaitGroup
-	for {
-		log.Printf("waiting for tcp client")
-		clientConn, err := listener.Accept()
-		if err != nil {
-			log.Printf("Error accepting connection: %v", err)
-			break
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer clientConn.Close()
-			log.Printf("handling tcp client")
-			err := handleConnection(clientConn, phpFpmAddr)
-			if err != nil {
-				log.Fatalln(err)
-			}
-		}()
-	}
-	listener.Close()
-	wg.Wait()
-
-}
-
-func handleConnection(clientConn net.Conn, phpFpmAddr string) error {
-	serverConn, err := net.Dial("tcp", phpFpmAddr)
-	if err != nil {
-		return fmt.Errorf("error connecting to PHP-FPM: %w", err)
-	}
-	defer serverConn.Close()
-	log.Printf("connected to php-fpm")
-
-	reqs, err := readFullRequest(clientConn)
-	if err != nil {
-		return fmt.Errorf("cannot read request: %w", err)
-	}
-	jsonRawReqs, err1 := json.Marshal(reqs)
-	if err1 != nil {
-		return fmt.Errorf("cannot marshal raw request to json: %w", err1)
-	}
-	log.Println("Requests raw", string(jsonRawReqs))
-	decoded, err := fcgiprotocol.DecodeRequest(reqs)
-	if err != nil {
-		return fmt.Errorf("cannot decode request: %w", err)
-	}
-	jsonReqs, err := json.Marshal(decoded)
-	if err != nil {
-		return fmt.Errorf("cannot marshal decoded request to json: %w", err)
-	}
-	log.Println("Requests decoded", string(jsonReqs))
-
-	log.Printf("writing to php-fpm")
-	for _, r := range reqs {
-		if err := binary.Write(serverConn, binary.BigEndian, r.Header); err != nil {
-			return fmt.Errorf("Error sending request header to server: %w", err)
-		}
-		if _, err := serverConn.Write(r.Buf); err != nil {
-			return fmt.Errorf("Error sending request content to server: %w", err)
-		}
-	}
-
-	log.Printf("reading from php-fpm")
-	resps, err := readFullResponse(serverConn)
-	if err != nil {
-		return fmt.Errorf("cannot read response: %w", err)
-	}
-	jsonRsps, err := json.Marshal(resps)
-	if err != nil {
-		return fmt.Errorf("cannot encode response to json: %w", err)
-	}
-	log.Println("Response", string(jsonRsps))
-
-	log.Printf("writting back to tcp client")
-	for _, r := range resps {
-		if err := binary.Write(clientConn, binary.BigEndian, r.Header); err != nil {
-			return fmt.Errorf("error sending response header to server: %w", err)
-		}
-		if _, err := clientConn.Write(r.Buf); err != nil {
-			return fmt.Errorf("error sending response content to server: %w", err)
-		}
-	}
-	return nil
-}
-
-func readFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
+func ReadFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
 	reccords := make([]fcgiprotocol.Record, 0, 3)
 
 	// recive untill empty FCGI_STDIN or EOF ?
@@ -155,7 +94,19 @@ func readFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
 	return reccords, nil
 }
 
-func readFullResponse(r io.Reader) ([]fcgiprotocol.Record, error) {
+func writeRecords(w io.Writer, recs []fcgiprotocol.Record) error {
+	for _, r := range recs {
+		if err := binary.Write(w, binary.BigEndian, r.Header); err != nil {
+			return fmt.Errorf("Error sending request header to server: %w", err)
+		}
+		if _, err := w.Write(r.Buf); err != nil {
+			return fmt.Errorf("Error sending request content to server: %w", err)
+		}
+	}
+	return nil
+}
+
+func ReadFullResponse(r io.Reader) ([]fcgiprotocol.Record, error) {
 	reccords := make([]fcgiprotocol.Record, 0, 3)
 
 	// recive untill EOF or FCGI_END_REQUEST

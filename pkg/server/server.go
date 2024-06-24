@@ -1,12 +1,13 @@
 package server
 
 import (
+	"io"
 	"log"
 	"net"
 	"sync"
 )
 
-type Hanlder func(clientConn net.Conn) error
+type Hanlder func(clientConn io.ReadWriter) error
 
 func Run(done <-chan struct{}, listener net.Listener, handler Hanlder) {
 	var wg sync.WaitGroup

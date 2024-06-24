@@ -2,12 +2,13 @@ package server
 
 import (
 	"context"
+	"io"
 	"net"
 	"testing"
 	"time"
 )
 
-func mockHandler(conn net.Conn) error {
+func mockHandler(conn io.ReadWriter) error {
 	time.Sleep(100 * time.Millisecond)
 	return nil
 }
