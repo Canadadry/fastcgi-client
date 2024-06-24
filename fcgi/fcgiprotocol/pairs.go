@@ -1,10 +1,23 @@
 package fcgiprotocol
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
+func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
+	buf := &bytes.Buffer{}
+	err := buildPair(buf, pairs)
+	if err != nil {
+		panic(fmt.Errorf("cannot build pair :%w", err))
+	}
+	for _ = range padding {
+		buf.Write([]byte{0})
+	}
+	return buf.Bytes()
+}
 func buildPair(w io.Writer, pairs map[string]string) error {
 	b := make([]byte, 8)
 

@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strconv"
 )
 
 const Action = "sniff"
@@ -83,11 +84,32 @@ func ReadFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
 		if err == io.EOF {
 			break
 		}
-		if rec.Header.Type == fcgiprotocol.FCGI_STDIN && len(rec.Content()) == 0 {
-			break
-		}
 		if rec.Header.Type == fcgiprotocol.FCGI_PARAMS && len(rec.Content()) == 0 {
 			break
+		}
+	}
+
+	req, err := fcgiprotocol.DecodeRequest(reccords)
+	if err != nil {
+		return reccords, fmt.Errorf("cannot decode request : %w", err)
+	}
+	lengthStr, _ := req.Env["CONTENT_LENGTH"]
+	length, _ := strconv.Atoi(lengthStr)
+	read := 0
+
+	for read <= length {
+		rec := fcgiprotocol.Record{}
+		err := rec.Read(r)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		reccords = append(reccords, rec)
+		if err == io.EOF {
+			break
+		}
+
+		if rec.Header.Type == fcgiprotocol.FCGI_STDIN {
+			read += len(rec.Content())
 		}
 	}
 

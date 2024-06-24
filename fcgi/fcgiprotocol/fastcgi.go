@@ -17,7 +17,7 @@ type recordWriter func(recType uint8, reqId uint16, content []byte) error
 func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte, error) {
 	var reqId uint16 = 1
 	buf := bufio.NewWriterSize(rwc, MaxWrite)
-	err := writeRequest(streamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
+	err := WriteRequest(StreamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cant write req : %w", err)
 	}
@@ -29,7 +29,7 @@ func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte
 	return readResponse(rwc)
 }
 
-func writeRequest(w recordWriter, reqId uint16, env map[string]string, body string) error {
+func WriteRequest(w recordWriter, reqId uint16, env map[string]string, body string) error {
 	buf := &bytes.Buffer{}
 	err := buildPair(buf, env)
 	if err != nil {
@@ -104,7 +104,7 @@ func writeStdin(w recordWriter, reqId uint16, body []byte) error {
 	return err
 }
 
-func rawRecordWriter(w io.Writer) recordWriter {
+func RawRecordWriter(w io.Writer) recordWriter {
 	return func(recType uint8, reqId uint16, content []byte) (err error) {
 		//fmt.Fprintf("writeRecord of %d : %s\n", recType, base64.StdEncoding.EncodeToString(content))
 		h := NewHeader(recType, reqId, len(content))
@@ -121,8 +121,8 @@ func rawRecordWriter(w io.Writer) recordWriter {
 	}
 }
 
-func streamRecordWriter(w io.Writer, maxWrite int) recordWriter {
-	rw := rawRecordWriter(w)
+func StreamRecordWriter(w io.Writer, maxWrite int) recordWriter {
+	rw := RawRecordWriter(w)
 	return func(recType uint8, reqId uint16, content []byte) error {
 		if len(content) == 0 {
 			return rw(recType, reqId, nil)
