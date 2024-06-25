@@ -93,7 +93,18 @@ func TestDo(t *testing.T) {
 				}, "\n"),
 				Stderr: "",
 			},
-			Logger: strings.Join([]string{"test"}, "\n"),
+			Logger: strings.Join([]string{
+				"Proxy listening on 127.0.0.1:9001, forwarding to 127.0.0.1:9000",
+				"handling new TCP client",
+				"connected to server",
+				"request read raw", `[{"Header":{"Version":1,"Type":1,"Id":1,"ContentLength":8,"PaddingLength":0,"Reserved":0},"Buf":"AAEAAAAAAAA="},{"Header":{"Version":1,"Type":4,"Id":1,"ContentLength":466,"PaddingLength":6,"Reserved":0},"Buf":"DgRSRVFVRVNUX01FVEhPRFBPU1QLEFJFUVVFU1RfVVJJL2FwaS9hdXRoLXRva2VucxEHR0FURVdBWV9JTlRFUkZBQ0VDR0kvMS4xDgRSRVFVRVNUX1NDSEVNRWh0dHAPEFNFUlZFUl9TT0ZUV0FSRWdvIC8gZmNnaWNsaWVudCAMEENPTlRFTlRfVFlQRWFwcGxpY2F0aW9uL2pzb24MEERPQ1VNRU5UX1VSSS9hcGkvYXV0aC10b2tlbnMPPFNDUklQVF9GSUxFTkFNRS9Vc2Vycy9qZXJvbWUvUHJvZy9FVkNLL3Rvb2wvZmFzdGNnaS1zZXJ2ZS9waHAtZnBtL2luZGV4LnBocAsQU0NSSVBUX05BTUUvYXBpL2F1dGgtdG9rZW5zDwhTRVJWRVJfUFJPVE9DT0xIVFRQLzEuMQ4CQ09OVEVOVF9MRU5HVEgzOA0yRE9DVU1FTlRfUk9PVC9Vc2Vycy9qZXJvbWUvUHJvZy9FVkNLL3Rvb2wvZmFzdGNnaS1zZXJ2ZS9waHAtZnBtDA9RVUVSWV9TVFJJTkdzdGF0dXNfY29kZT0yMDEREEhUVFBfQ09OVEVOVF9UWVBFYXBwbGljYXRpb24vanNvbgAAAAAAAA=="},{"Header":{"Version":1,"Type":4,"Id":1,"ContentLength":0,"PaddingLength":0,"Reserved":0},"Buf":""},{"Header":{"Version":1,"Type":5,"Id":1,"ContentLength":38,"PaddingLength":2,"Reserved":0},"Buf":"eyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQoAAA=="}]`,
+				"decoded request", `{"ReqId":1,"Env":{"CONTENT_LENGTH":"38","CONTENT_TYPE":"application/json","DOCUMENT_ROOT":"/Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm","DOCUMENT_URI":"/api/auth-tokens","GATEWAY_INTERFACE":"CGI/1.1","HTTP_CONTENT_TYPE":"application/json","QUERY_STRING":"status_code=201","REQUEST_METHOD":"POST","REQUEST_SCHEME":"http","REQUEST_URI":"/api/auth-tokens","SCRIPT_FILENAME":"/Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php","SCRIPT_NAME":"/api/auth-tokens","SERVER_PROTOCOL":"HTTP/1.1","SERVER_SOFTWARE":"go / fcgiclient "},"Stdin":"eyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQo="}`,
+				"writing back request",
+				"finish writing to server, waiting for response",
+				"response read raw", `[{"Header":{"Version":1,"Type":6,"Id":1,"ContentLength":389,"PaddingLength":3,"Reserved":0},"Buf":"U3RhdHVzOiAyMDEgQ3JlYXRlZA0KWC1Qb3dlcmVkLUJ5OiBQSFAvOC4zLjcNClN0YXR1cy1Db2RlOjIwMQ0KWC1TdGF0dXMtQ29kZTogMjAxDQpYLVJlcXVlc3QtVXJpOiAvYXBpL2F1dGgtdG9rZW5zDQpDb250ZW50LXR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD1VVEYtOA0KDQo8aDE+UmVxdWVzdGVkIFVSTDo8L2gxPgo8cD4vYXBpL2F1dGgtdG9rZW5zPC9wPgo8aDE+UmVxdWVzdCBNZXRob2Q6PC9oMT4KPHA+UE9TVDwvcD4KPGgxPkhlYWRlcnM6PC9oMT4KPHByZT4KQ29udGVudC1MZW5ndGg6IDM4CkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vanNvbgo8L3ByZT4KPGgxPkJvZHk6PC9oMT4KPHByZT4KeyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQo8L3ByZT4AAAA="},{"Header":{"Version":1,"Type":3,"Id":1,"ContentLength":8,"PaddingLength":0,"Reserved":0},"Buf":"AAAAAABhdGk="}]`,
+				"writing back response",
+				"",
+			}, "\n"),
 		},
 	}
 
@@ -102,7 +113,7 @@ func TestDo(t *testing.T) {
 			done := make(chan struct{})
 			defer close(done)
 			buf := &bytes.Buffer{}
-			l := log.New(os.Stdout, "", 0)
+			l := log.New(buf, "", 0)
 			printf := func(msg string, args ...interface{}) {
 				l.Printf(msg, args...)
 				t.Logf(msg, args...)

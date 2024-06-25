@@ -89,9 +89,7 @@ func ReadFullRequest(printf Printf) func(r io.Reader) ([]fcgiprotocol.Record, er
 	return func(r io.Reader) ([]fcgiprotocol.Record, error) {
 		reccords := make([]fcgiprotocol.Record, 0, 3)
 
-		// recive untill empty FCGI_STDIN or EOF ?
 		for {
-			printf("first read loop\n")
 			rec := fcgiprotocol.Record{}
 			err := rec.Read(r)
 			if err != nil && err != io.EOF {
@@ -115,7 +113,6 @@ func ReadFullRequest(printf Printf) func(r io.Reader) ([]fcgiprotocol.Record, er
 		read := 0
 
 		for read < length {
-			printf("second read loop r %d : l %d \n", read, length)
 			rec := fcgiprotocol.Record{}
 			err := rec.Read(r)
 			if err != nil {
