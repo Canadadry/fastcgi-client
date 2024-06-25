@@ -10,7 +10,7 @@ import (
 
 func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
 	buf := &bytes.Buffer{}
-	err := buildPair(buf, pairs)
+	err := BuildPair(buf, pairs)
 	if err != nil {
 		panic(fmt.Errorf("cannot build pair :%w", err))
 	}
@@ -19,7 +19,8 @@ func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
 	}
 	return buf.Bytes()
 }
-func buildPair(w io.Writer, pairs map[string]string) error {
+
+func BuildPair(w io.Writer, pairs map[string]string) error {
 	b := make([]byte, 8)
 	keys := make([]string, 0, len(pairs))
 	for k := range pairs {

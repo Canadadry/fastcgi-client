@@ -31,7 +31,7 @@ func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte
 
 func WriteRequest(w recordWriter, reqId uint16, env map[string]string, body string) error {
 	buf := &bytes.Buffer{}
-	err := buildPair(buf, env)
+	err := BuildPair(buf, env)
 	if err != nil {
 		return fmt.Errorf("cant build pair : %w", err)
 	}

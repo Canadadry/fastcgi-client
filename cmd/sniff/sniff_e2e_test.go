@@ -2,7 +2,9 @@ package sniff
 
 import (
 	"app/fcgi/fcgiclient"
+	"app/fcgi/fcgiprotocol"
 	"bytes"
+	"encoding/json"
 	"log"
 	"net"
 	"net/url"
@@ -38,6 +40,14 @@ func MustUrl(t *testing.T, rawUrl string) *url.URL {
 		t.Fatalf("cannot parse url %s : %v", rawUrl, err)
 	}
 	return u
+}
+
+func MustMarshlJson(t *testing.T, data any) string {
+	result, err := json.Marshal(data)
+	if err != nil {
+		t.Fatalf("cannot marshal json %#v : %v", data, err)
+	}
+	return string(result)
 }
 
 func TestDo(t *testing.T) {
@@ -97,8 +107,54 @@ func TestDo(t *testing.T) {
 				"Proxy listening on 127.0.0.1:9001, forwarding to 127.0.0.1:9000",
 				"handling new TCP client",
 				"connected to server",
-				"request read raw " + "[{\"Header\":{\"Version\":1,\"Type\":1,\"Id\":1,\"ContentLength\":8,\"PaddingLength\":0,\"Reserved\":0},\"Buf\":\"AAEAAAAAAAA=\"},{\"Header\":{\"Version\":1,\"Type\":4,\"Id\":1,\"ContentLength\":470,\"PaddingLength\":2,\"Reserved\":0},\"Buf\":\"DgJDT05URU5UX0xFTkdUSDM4DBBDT05URU5UX1RZUEVhcHBsaWNhdGlvbi9qc29uDTRET0NVTUVOVF9ST09UL1VzZXJzL2plcm9tZS9Qcm9nL0VWQ0svdG9vbHMvZmFzdGNnaS1jbGllbnQvcGhwLWZwbQwQRE9DVU1FTlRfVVJJL2FwaS9hdXRoLXRva2VucxEHR0FURVdBWV9JTlRFUkZBQ0VDR0kvMS4xERBIVFRQX0NPTlRFTlRfVFlQRWFwcGxpY2F0aW9uL2pzb24MD1FVRVJZX1NUUklOR3N0YXR1c19jb2RlPTIwMQ4EUkVRVUVTVF9NRVRIT0RQT1NUDgRSRVFVRVNUX1NDSEVNRWh0dHALEFJFUVVFU1RfVVJJL2FwaS9hdXRoLXRva2Vucw8+U0NSSVBUX0ZJTEVOQU1FL1VzZXJzL2plcm9tZS9Qcm9nL0VWQ0svdG9vbHMvZmFzdGNnaS1jbGllbnQvcGhwLWZwbS9pbmRleC5waHALEFNDUklQVF9OQU1FL2FwaS9hdXRoLXRva2Vucw8IU0VSVkVSX1BST1RPQ09MSFRUUC8xLjEPEFNFUlZFUl9TT0ZUV0FSRWdvIC8gZmNnaWNsaWVudCAAAA==\"},{\"Header\":{\"Version\":1,\"Type\":4,\"Id\":1,\"ContentLength\":0,\"PaddingLength\":0,\"Reserved\":0},\"Buf\":\"\"},{\"Header\":{\"Version\":1,\"Type\":5,\"Id\":1,\"ContentLength\":38,\"PaddingLength\":2,\"Reserved\":0},\"Buf\":\"eyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQoAAA==\"}]",
-				"decoded request " + "{\"ReqId\":1,\"Env\":{\"CONTENT_LENGTH\":\"38\",\"CONTENT_TYPE\":\"application/json\",\"DOCUMENT_ROOT\":\"/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm\",\"DOCUMENT_URI\":\"/api/auth-tokens\",\"GATEWAY_INTERFACE\":\"CGI/1.1\",\"HTTP_CONTENT_TYPE\":\"application/json\",\"QUERY_STRING\":\"status_code=201\",\"REQUEST_METHOD\":\"POST\",\"REQUEST_SCHEME\":\"http\",\"REQUEST_URI\":\"/api/auth-tokens\",\"SCRIPT_FILENAME\":\"/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm/index.php\",\"SCRIPT_NAME\":\"/api/auth-tokens\",\"SERVER_PROTOCOL\":\"HTTP/1.1\",\"SERVER_SOFTWARE\":\"go / fcgiclient \"},\"Stdin\":\"eyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQo=\"}\nwriting back request\nfinish writing to server, waiting for response\nresponse read raw [{\"Header\":{\"Version\":1,\"Type\":6,\"Id\":1,\"ContentLength\":389,\"PaddingLength\":3,\"Reserved\":0},\"Buf\":\"U3RhdHVzOiAyMDEgQ3JlYXRlZA0KWC1Qb3dlcmVkLUJ5OiBQSFAvOC4zLjcNClN0YXR1cy1Db2RlOjIwMQ0KWC1TdGF0dXMtQ29kZTogMjAxDQpYLVJlcXVlc3QtVXJpOiAvYXBpL2F1dGgtdG9rZW5zDQpDb250ZW50LXR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD1VVEYtOA0KDQo8aDE+UmVxdWVzdGVkIFVSTDo8L2gxPgo8cD4vYXBpL2F1dGgtdG9rZW5zPC9wPgo8aDE+UmVxdWVzdCBNZXRob2Q6PC9oMT4KPHA+UE9TVDwvcD4KPGgxPkhlYWRlcnM6PC9oMT4KPHByZT4KQ29udGVudC1MZW5ndGg6IDM4CkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vanNvbgo8L3ByZT4KPGgxPkJvZHk6PC9oMT4KPHByZT4KeyJsb2dpbiI6YWRtaW4iLCJwYXNzd29yZCI6ImF6ZXJ0eXUifQo8L3ByZT4AAAA=\"},{\"Header\":{\"Version\":1,\"Type\":3,\"Id\":1,\"ContentLength\":8,\"PaddingLength\":0,\"Reserved\":0},\"Buf\":\"AAAAAABhdGk=\"}]",
+				"request read raw " + MustMarshlJson(t, []fcgiprotocol.Record{
+					buildRecord(fcgiprotocol.FCGI_BEGIN_REQUEST, []byte{0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+					pairRecord(t, map[string]string{
+						"CONTENT_LENGTH":    "38",
+						"CONTENT_TYPE":      "application/json",
+						"DOCUMENT_ROOT":     "/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm",
+						"DOCUMENT_URI":      "/api/auth-tokens",
+						"GATEWAY_INTERFACE": "CGI/1.1",
+						"HTTP_CONTENT_TYPE": "application/json",
+						"QUERY_STRING":      "status_code=201",
+						"REQUEST_METHOD":    "POST",
+						"REQUEST_SCHEME":    "http",
+						"REQUEST_URI":       "/api/auth-tokens",
+						"SCRIPT_FILENAME":   "/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm/index.php",
+						"SCRIPT_NAME":       "/api/auth-tokens",
+						"SERVER_PROTOCOL":   "HTTP1.1",
+						"SERVER_SOFTWARE":   "go / fcgiclient ",
+					}),
+					buildRecord(fcgiprotocol.FCGI_PARAMS, []byte{}),
+					buildRecord(fcgiprotocol.FCGI_STDIN, []byte(`{"login":admin","password":"azertyu"}`+"\n")),
+				}),
+				"writing back request",
+				"finish writing to server, waiting for response",
+				"response read raw " + MustMarshlJson(t, []fcgiprotocol.Record{
+					buildRecord(fcgiprotocol.FCGI_STDOUT, []byte(strings.Join([]string{
+						"Status: 201 Created",
+						"X-Powered-By: PHP/8.3.7",
+						"Status-Code:201",
+						"X-Status-Code: 201",
+						"X-Request-Uri: /api/auth-tokens",
+						"Content-type: text/html; charset=UTF-8",
+						"",
+						"<h1>Requested URL:</h1>",
+						"<p>/api/auth-tokens</p>",
+						"<h1>Request Method:</h1>",
+						"<p>POST</p>",
+						"<h1>Headers:</h1>",
+						"<pre>",
+						"Content-Length: 38",
+						"Content-Type: application/json",
+						"</pre>",
+						"<h1>Body:</h1>",
+						"<pre>",
+						`{"login":admin","password":"azertyu"}`,
+						"</pre>",
+					}, "\n"))),
+					buildRecord(fcgiprotocol.FCGI_END_REQUEST, []byte{0, 0, 0, 0, 0, 0, 0, 0}),
+				}),
 				"writing back response",
 				"",
 			}, "\n"),
@@ -115,7 +171,7 @@ func TestDo(t *testing.T) {
 				l.Printf(msg, args...)
 				t.Logf(msg, args...)
 			}
-			go buildServerAndRun(done, printf, "127.0.0.1:9001", "127.0.0.1:9000")
+			go buildServerAndRun(done, printf, "127.0.0.1:9001", "127.0.0.1:9000", false)
 			conn, err := net.Dial("tcp", "127.0.0.1:9001")
 			if err != nil {
 				t.Fatalf("cannot dial php server : %v", err)
@@ -150,4 +206,25 @@ func testError(t *testing.T, got error, want string) {
 			}
 		}
 	}
+}
+
+func pairRecord(t *testing.T, pairs map[string]string) fcgiprotocol.Record {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	err := fcgiprotocol.BuildPair(buf, pairs)
+	if err != nil {
+		t.Fatalf("cannot build pair :%v", err)
+	}
+	return buildRecord(fcgiprotocol.FCGI_PARAMS, buf.Bytes())
+}
+
+func buildRecord(recType uint8, data []byte) fcgiprotocol.Record {
+	rec := fcgiprotocol.Record{
+		Header: fcgiprotocol.NewHeader(recType, 1, len(data)),
+	}
+	for _ = range rec.Header.PaddingLength {
+		data = append(data, 0)
+	}
+	rec.Buf = data
+	return rec
 }

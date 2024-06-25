@@ -24,10 +24,12 @@ type FastCGITrame struct {
 func Run(args []string) error {
 	phpFpmAddr := "127.0.0.1:9000"
 	proxyAddr := "127.0.0.1:9001"
+	dontDecodeRequest := false
 	help := false
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
 	fs.StringVar(&phpFpmAddr, "forward-to", phpFpmAddr, "forward to fpm server at")
 	fs.StringVar(&proxyAddr, "listen", proxyAddr, "proxy fastcgi listen to")
+	fs.BoolVar(&dontDecodeRequest, "no-decode", dontDecodeRequest, "stop decoding request")
 	fs.BoolVar(&help, "help", help, "print cmd help")
 	err := fs.Parse(args)
 	if err != nil {
@@ -43,12 +45,13 @@ func Run(args []string) error {
 		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
 		phpFpmAddr,
 		proxyAddr,
+		!dontDecodeRequest,
 	)
 }
 
 type Printf func(msg string, args ...interface{})
 
-func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAddr string) error {
+func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAddr string, decode bool) error {
 	listener, err := net.Listen("tcp", proxyAddr)
 	if err != nil {
 		return fmt.Errorf("Error creating listener: %w", err)
@@ -58,10 +61,12 @@ func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAdd
 	clientToServer := server.Pipe[[]fcgiprotocol.Record]{
 		Reader: ReadFullRequest(printf),
 		Writer: writeRecords,
-		Decoder: func(data []fcgiprotocol.Record) (interface{}, error) {
+	}
+	if decode {
+		clientToServer.Decoder = func(data []fcgiprotocol.Record) (interface{}, error) {
 			d, err := fcgiprotocol.DecodeRequest(data)
 			return d, err
-		},
+		}
 	}
 	serverToClient := server.Pipe[[]fcgiprotocol.Record]{
 		Reader:  ReadFullResponse,
