@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -36,9 +37,18 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
-	listener, err := net.Listen("tcp", ":8080")
+	return buildServerAndRun(
+		context.Background().Done(),
+		log.New(os.Stdout, "", log.LstdFlags),
+		phpFpmAddr,
+		proxyAddr,
+	)
+}
+
+func buildServerAndRun(done <-chan struct{}, l *log.Logger, proxyAddr, phpFpmAddr string) error {
+	listener, err := net.Listen("tcp", proxyAddr)
 	if err != nil {
-		log.Fatalf("Error creating listener: %v", err)
+		return fmt.Errorf("Error creating listener: %w", err)
 	}
 	defer listener.Close()
 	log.Printf("Proxy listening on %s, forwarding to %s", proxyAddr, phpFpmAddr)
@@ -49,15 +59,17 @@ func Run(args []string) error {
 			d, err := fcgiprotocol.DecodeRequest(data)
 			return d, err
 		},
+		Logger: l,
 	}
 	serverToClient := server.Pipe[[]fcgiprotocol.Record]{
 		Reader:  ReadFullResponse,
 		Writer:  writeRecords,
 		Decoder: nil,
+		Logger:  l,
 	}
 
 	server.Run(
-		context.Background().Done(),
+		done,
 		listener,
 		server.Proxy[[]fcgiprotocol.Record](
 			func() (io.ReadWriteCloser, error) {
