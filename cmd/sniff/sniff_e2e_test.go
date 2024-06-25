@@ -21,7 +21,6 @@ func runPhpFpmServer(t *testing.T) (string, func() error) {
 	t.Helper()
 	cwd, _ := os.Getwd()
 	cwd = path.Join(cwd, "../../php-fpm")
-	t.Logf("dir is %s", cwd)
 	// binary can be downloaded from https://dl.static-php.dev/static-php-cli/common/
 	cmd := exec.Command("./php-fpm", "-y", path.Join(cwd, "php-fpm.conf"), "-p", cwd)
 	cmd.Dir = cwd
@@ -174,6 +173,7 @@ func TestDo(t *testing.T) {
 				t.Logf(msg, args...)
 			}
 			go buildServerAndRun(done, printf, "127.0.0.1:9001", "127.0.0.1:9000", false)
+			time.Sleep(time.Second)
 			conn, err := net.Dial("tcp", "127.0.0.1:9001")
 			if err != nil {
 				t.Fatalf("cannot dial php server : %v", err)
