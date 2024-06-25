@@ -1,55 +1,101 @@
-# FastCGI-Serve - A webserver for FastCGI
+# FastCGI Utility
 
-This is a dedicated webserver to serve applications over HTTP using FastCGI
-interface, allowing for example to run (and test) PHP applications with
-different Zend PHP and HHVM side by side.
-
-Why? I couldn't get hhvm and PHP to run side by side with Apache on my Ubuntu system.
-There is probably a simple solution out there to do what this project does, but
-in the interest of furthering my #golang experience I thought this was a good project
-to built.
-
-**WARNING: This server is not meant for production.**
+This utility facilitates communication with PHP via FastCGI and allows inspection of FastCGI protocol frames. It includes three main commands: `server`, `client`, and `sniff`.
 
 ## Installation
 
-You need go installed on your system, then call:
+To install the FastCGI utility, you need to have Go installed. Clone the repository and build the project:
 
-    $ go get github.com/beberlei/fastcgi-serve
-
-Add `$GOPATH/bin` to your `$PATH` in `~/.bashrc` to make the `fastcgi-serve` command available.
-
-You need PHP-FPM or HHVM on your system as well and listening for fastcgi
-connections on `127.0.0.1:9000` (it does that by default).
-
-Don't forget to run either `/etc/init.d/php-fpm start` or `/etc/init.d/hhvm start`.
+```bash
+git clone git@github.com:Canadadry/fastcgi-client.git
+cd fastcgi-client
+go build -o fcgi
+```
 
 ## Usage
 
-You can keep your Apache/Nginx setup with this proxy and start a webserver (defaults to `localhost:8080`)
-for a given document root (defaults to current working directory).
+```bash
+fcgi <action> [options]
+```
 
-    $ fastcgi-serve --document-root=/var/www --listen=127.0.0.1:8080
-    Listening on http://localhost:8080
-    Document root is /var/www
-    Press Ctrl-C to quit.
+## Actions
 
-## Configuration
+### server
 
-The following settings are available:
+Starts a web server that serves static files and forwards requests to a FastCGI server.
 
-- `--document-root` - The document root to serve files from (default: current working directory)
-- `--listen` - The webserver bind address to listen to (default:127.0.0.1)
-- `--server` - The FastCGI server to listen to
-- `--server-port` The FastCGI server port to listen to
-- `--index` The default script to call when request path cannot be served with an existing file
+**Options:**
 
-There also support to load additional environment variables into each request.
-Create an `.env` file in the document root with key vaue pairs of options:
+ - `-document-root`: The document root to serve files from (default: current working directory).
+ - `-listen`: The web server bind address to listen to (default: localhost:8080).
+ - `-server`: The FastCGI server address to forward requests to (default: 127.0.0.1:9000).
+ - `-index`: The default script to call when the path cannot be served by an existing file (default: index.php).
 
-    FOO=BAR
+**Example:**
 
-## Acknowledgements
+```bash
+fcgi server -document-root /var/www -listen localhost:8080 -server 127.0.0.1:9000 -index index.php
+```
 
-- Bundles fastcgi client library by Junqing Tan (ivan@mysqlab.net) as dependency
-- http://code.google.com/p/go-fastcgi-client/
+### client
+
+Sends a request to a FastCGI server.
+
+**Options:**
+
+ - `-host`: The FastCGI server address (default: 127.0.0.1:9000).
+ - `-method`: The HTTP request method (default: GET).
+ - `-url`: The request URL (default: /).
+ - `-index`: The request index (default: index.php).
+ - `-document-root`: The request document root (default: current working directory).
+ - `-body`: The request body.
+ - `-env`: The request environment as JSON.
+ - `-header`: The request header as JSON.
+ - `-help`: Print command help.
+
+```bash
+fcgi client -host 127.0.0.1:9000 -method POST -url /test -index index.php -document-root /var/www -body "test body" -env env.json -header "{}"
+```
+
+### sniff
+
+Starts a proxy to inspect FastCGI frames.
+
+**Options:**
+
+ - `-forward-to`: The address of the FastCGI server to forward to (default: 127.0.0.1:9000).
+ - `-listen`: The proxy FastCGI listen address (default: 127.0.0.1:9001).
+ - `-help`: Print command help.
+
+
+**example:**
+
+ ```bash
+ fcgi sniff -forward-to 127.0.0.1:9000 -listen 127.0.0.1:9001
+ ```
+
+## Examples
+
+### Start a Web Server
+
+Start a web server with the document root /var/www, listening on localhost:8080, and forwarding to the FastCGI server at 127.0.0.1:9000:
+
+```bash
+fcgi server -document-root /var/www -listen localhost:8080 -server 127.0.0.1:9000 -index index.php
+```
+
+### Send a Request to FastCGI Server
+
+Send a POST request to the FastCGI server at 127.0.0.1:9000, with the URL /test, using the document root /var/www, and including a request body and environment variables from env.json:
+
+```bash
+fcgi client -host 127.0.0.1:9000 -method POST -url /test -index index.php -document-root /var/www -body "test body" -env env.json -header "{}"
+```
+
+### Start a Proxy to Inspect FastCGI Frames
+
+Start a proxy that listens on 127.0.0.1:9001 and forwards requests to the FastCGI server at 127.0.0.1:9000:
+
+```bash
+fcgi sniff -forward-to 127.0.0.1:9000 -listen 127.0.0.1:9001
+```
