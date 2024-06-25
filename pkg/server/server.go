@@ -2,14 +2,13 @@ package server
 
 import (
 	"io"
-	"log"
 	"net"
 	"sync"
 )
 
 type Hanlder func(clientConn io.ReadWriter) error
 
-func Run(done <-chan struct{}, listener net.Listener, handler Hanlder) {
+func Run(done <-chan struct{}, listener net.Listener, handler Hanlder, printf func(msg string, args ...interface{})) {
 	var wg sync.WaitGroup
 
 	connChan := make(chan net.Conn)
@@ -29,7 +28,7 @@ func Run(done <-chan struct{}, listener net.Listener, handler Hanlder) {
 	for {
 		select {
 		case <-done:
-			log.Println("Context done, stopping listener accept loop")
+			printf("context done, stopping listener accept loop")
 			wg.Wait()
 			return
 		case clientConn := <-connChan:
@@ -37,14 +36,14 @@ func Run(done <-chan struct{}, listener net.Listener, handler Hanlder) {
 			go func() {
 				defer wg.Done()
 				defer clientConn.Close()
-				log.Printf("Handling TCP client")
+				printf("handling new TCP client\n")
 				err := handler(clientConn)
 				if err != nil {
-					log.Println(err)
+					println("error handeling client %v\n", err)
 				}
 			}()
 		case err := <-errChan:
-			log.Printf("Error accepting connection: %v", err)
+			printf("rrror accepting connection: %v\n", err)
 		}
 	}
 }

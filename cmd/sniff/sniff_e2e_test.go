@@ -102,7 +102,12 @@ func TestDo(t *testing.T) {
 			done := make(chan struct{})
 			defer close(done)
 			buf := &bytes.Buffer{}
-			go buildServerAndRun(done, log.New(buf, "", 0), "127.0.0.1:9001", "127.0.0.1:9000")
+			l := log.New(os.Stdout, "", 0)
+			printf := func(msg string, args ...interface{}) {
+				l.Printf(msg, args...)
+				t.Logf(msg, args...)
+			}
+			go buildServerAndRun(done, printf, "127.0.0.1:9001", "127.0.0.1:9000")
 			conn, err := net.Dial("tcp", "127.0.0.1:9001")
 			if err != nil {
 				t.Fatalf("cannot dial php server : %v", err)

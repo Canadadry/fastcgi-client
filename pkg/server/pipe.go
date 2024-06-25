@@ -4,17 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 )
 
 type Pipe[T any] struct {
 	Reader  func(r io.Reader) (T, error)
 	Writer  func(w io.Writer, data T) error
 	Decoder func(data T) (interface{}, error)
-	Logger  *log.Logger
 }
 
-func (p *Pipe[T]) Run(r io.Reader, w io.Writer, prefix string) error {
+func (p *Pipe[T]) Run(r io.Reader, w io.Writer, prefix string, printf func(msg string, args ...interface{})) error {
 	data, err := p.Reader(r)
 	if err != nil {
 		return fmt.Errorf("cannot read %s : %w", prefix, err)
@@ -23,7 +21,7 @@ func (p *Pipe[T]) Run(r io.Reader, w io.Writer, prefix string) error {
 	if err1 != nil {
 		return fmt.Errorf("cannot marshal raw %s : %w", prefix, err1)
 	}
-	p.Logger.Println(prefix, "read raw", string(jsonRawRecs))
+	printf("%s read raw %s\n", prefix, string(jsonRawRecs))
 	if p.Decoder != nil {
 		decoded, err := p.Decoder(data)
 		if err != nil {
@@ -33,9 +31,9 @@ func (p *Pipe[T]) Run(r io.Reader, w io.Writer, prefix string) error {
 		if err != nil {
 			return fmt.Errorf("cannot marshal decoded %s : %w", prefix, err)
 		}
-		p.Logger.Println("decoded", prefix, string(jsonReqs))
+		printf("decoded %s %s\n", prefix, string(jsonReqs))
 	}
 
-	p.Logger.Println("writing back", prefix)
+	printf("writing back %s\n", prefix)
 	return p.Writer(w, data)
 }

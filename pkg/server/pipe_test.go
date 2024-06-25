@@ -27,17 +27,18 @@ func TestPipeRun(t *testing.T) {
 	}
 
 	out := &bytes.Buffer{}
+	l := log.New(out, "", 0)
+	printf := func(msg string, args ...interface{}) { l.Printf(msg, args...) }
 	pipe := Pipe[[]byte]{
 		Reader:  mockReader,
 		Writer:  mockWriter,
 		Decoder: mockDecoder,
-		Logger:  log.New(out, "", 0),
 	}
 
 	clientConn := bytes.NewBuffer(mockData)
 	serverConn := &bytes.Buffer{}
 
-	err := pipe.Run(clientConn, serverConn, "test")
+	err := pipe.Run(clientConn, serverConn, "test", printf)
 	if err != nil {
 		t.Fatalf("Run returned an error: %v", err)
 	}

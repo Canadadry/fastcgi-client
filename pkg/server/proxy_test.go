@@ -54,9 +54,11 @@ func WriteAllError(w io.Writer, data []byte) error {
 func TestHandleConnection_Success(t *testing.T) {
 	out := &bytes.Buffer{}
 	clientConn := newMockConn("request data")
+	l := log.New(out, "", 0)
 	handler := Proxy[[]byte](mockDialFunc,
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll, Logger: log.New(out, "request", 0)},
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll, Logger: log.New(out, "response", 0)},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll},
+		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
 	)
 
 	err := handler(clientConn)
@@ -69,10 +71,12 @@ func TestHandleConnection_Success(t *testing.T) {
 		t.Errorf("Expected client write buffer to be %q, but got %q", expected, clientConn.writeBuf.String())
 	}
 	expectedLog := strings.Join([]string{
-		"requestrequest read raw \"cmVxdWVzdCBkYXRh\"",
-		"requestwriting back request",
-		"responseresponse read raw \"cmVzcG9uc2UgZGF0YQ==\"",
-		"responsewriting back response",
+		"connected to server",
+		"request read raw \"cmVxdWVzdCBkYXRh\"",
+		"writing back request",
+		"finish writing to server, waiting for response",
+		"response read raw \"cmVzcG9uc2UgZGF0YQ==\"",
+		"writing back response",
 		"",
 	}, "\n")
 	if out.String() != expectedLog {
@@ -83,9 +87,11 @@ func TestHandleConnection_Success(t *testing.T) {
 func TestHandleConnection_DialError(t *testing.T) {
 	out := &bytes.Buffer{}
 	clientConn := newMockConn("request data")
+	l := log.New(out, "", 0)
 	handler := Proxy(mockFailDialFunc,
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll, Logger: log.New(out, "request", 0)},
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll, Logger: log.New(out, "response", 0)},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll},
+		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
 	)
 
 	err := handler(clientConn)
@@ -97,9 +103,11 @@ func TestHandleConnection_DialError(t *testing.T) {
 func TestHandleConnection_PipeRunError(t *testing.T) {
 	out := &bytes.Buffer{}
 	clientConn := newMockConn("request data")
+	l := log.New(out, "", 0)
 	handler := Proxy(mockDialFunc,
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll, Logger: log.New(out, "request", 0)},
-		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAllError, Logger: log.New(out, "response", 0)},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAll},
+		Pipe[[]byte]{Reader: io.ReadAll, Writer: WriteAllError},
+		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
 	)
 
 	err := handler(clientConn)

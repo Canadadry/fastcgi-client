@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -30,7 +32,10 @@ func TestRun(t *testing.T) {
 		close(done)
 	}()
 
-	go Run(done, listener, mockHandler)
+	out := &bytes.Buffer{}
+	l := log.New(out, "", 0)
+	printf := func(msg string, args ...interface{}) { l.Printf(msg, args...) }
+	go Run(done, listener, mockHandler, printf)
 
 	// Connect to the listener
 	conn, err := net.Dial("tcp", listener.Addr().String())

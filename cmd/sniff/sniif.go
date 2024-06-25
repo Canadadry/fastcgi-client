@@ -37,21 +37,24 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
+	l := log.New(os.Stdout, "", log.LstdFlags)
 	return buildServerAndRun(
 		context.Background().Done(),
-		log.New(os.Stdout, "", log.LstdFlags),
+		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
 		phpFpmAddr,
 		proxyAddr,
 	)
 }
 
-func buildServerAndRun(done <-chan struct{}, l *log.Logger, proxyAddr, phpFpmAddr string) error {
+type Printf func(msg string, args ...interface{})
+
+func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAddr string) error {
 	listener, err := net.Listen("tcp", proxyAddr)
 	if err != nil {
 		return fmt.Errorf("Error creating listener: %w", err)
 	}
 	defer listener.Close()
-	log.Printf("Proxy listening on %s, forwarding to %s", proxyAddr, phpFpmAddr)
+	printf("Proxy listening on %s, forwarding to %s", proxyAddr, phpFpmAddr)
 	clientToServer := server.Pipe[[]fcgiprotocol.Record]{
 		Reader: ReadFullRequest,
 		Writer: writeRecords,
@@ -59,13 +62,11 @@ func buildServerAndRun(done <-chan struct{}, l *log.Logger, proxyAddr, phpFpmAdd
 			d, err := fcgiprotocol.DecodeRequest(data)
 			return d, err
 		},
-		Logger: l,
 	}
 	serverToClient := server.Pipe[[]fcgiprotocol.Record]{
 		Reader:  ReadFullResponse,
 		Writer:  writeRecords,
 		Decoder: nil,
-		Logger:  l,
 	}
 
 	server.Run(
@@ -77,7 +78,9 @@ func buildServerAndRun(done <-chan struct{}, l *log.Logger, proxyAddr, phpFpmAdd
 			},
 			clientToServer,
 			serverToClient,
+			printf,
 		),
+		printf,
 	)
 	return nil
 }
