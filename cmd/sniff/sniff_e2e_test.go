@@ -112,7 +112,7 @@ func TestDo(t *testing.T) {
 					pairRecord(t, map[string]string{
 						"CONTENT_LENGTH":    "38",
 						"CONTENT_TYPE":      "application/json",
-						"DOCUMENT_ROOT":     "/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm",
+						"DOCUMENT_ROOT":     dir,
 						"DOCUMENT_URI":      "/api/auth-tokens",
 						"GATEWAY_INTERFACE": "CGI/1.1",
 						"HTTP_CONTENT_TYPE": "application/json",
@@ -120,7 +120,7 @@ func TestDo(t *testing.T) {
 						"REQUEST_METHOD":    "POST",
 						"REQUEST_SCHEME":    "http",
 						"REQUEST_URI":       "/api/auth-tokens",
-						"SCRIPT_FILENAME":   "/Users/jerome/Prog/EVCK/tools/fastcgi-client/php-fpm/index.php",
+						"SCRIPT_FILENAME":   path.Join(dir, "index.php"),
 						"SCRIPT_NAME":       "/api/auth-tokens",
 						"SERVER_PROTOCOL":   "HTTP/1.1",
 						"SERVER_SOFTWARE":   "go / fcgiclient ",
