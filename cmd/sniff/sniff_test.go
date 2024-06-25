@@ -12,14 +12,16 @@ func TestReadFullRequest(t *testing.T) {
 	err := fcgiprotocol.WriteRequest(
 		fcgiprotocol.RawRecordWriter(&buf),
 		0,
-		map[string]string{"test": "test"},
+		map[string]string{"CONTENT_LENGTH": "4", "test": "test"},
 		"body",
 	)
 	if err != nil {
 		t.Fatalf("WriteRequest failed: %v", err)
 	}
-
-	records, err := ReadFullRequest(&buf)
+	printf := func(msg string, args ...interface{}) {
+		t.Logf(msg, args...)
+	}
+	records, err := ReadFullRequest(printf)(&buf)
 	if err != nil {
 		t.Fatalf("ReadFullRequest failed: %v", err)
 	}
@@ -30,8 +32,13 @@ func TestReadFullRequest(t *testing.T) {
 			Buf:    []byte{0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		},
 		{
-			Header: fcgiprotocol.NewHeader(fcgiprotocol.FCGI_PARAMS, 0, 10),
-			Buf:    fcgiprotocol.MustBuildPairWithPadding(map[string]string{"test": "test"}, 6),
+			Header: fcgiprotocol.NewHeader(fcgiprotocol.FCGI_PARAMS, 0, 27),
+			Buf: fcgiprotocol.MustBuildPairWithPadding(
+				map[string]string{
+					"CONTENT_LENGTH": "4",
+					"test":           "test"},
+				5,
+			),
 		},
 		{
 			Header: fcgiprotocol.NewHeader(fcgiprotocol.FCGI_PARAMS, 0, 0),

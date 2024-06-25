@@ -56,7 +56,7 @@ func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAdd
 	defer listener.Close()
 	printf("Proxy listening on %s, forwarding to %s", proxyAddr, phpFpmAddr)
 	clientToServer := server.Pipe[[]fcgiprotocol.Record]{
-		Reader: ReadFullRequest,
+		Reader: ReadFullRequest(printf),
 		Writer: writeRecords,
 		Decoder: func(data []fcgiprotocol.Record) (interface{}, error) {
 			d, err := fcgiprotocol.DecodeRequest(data)
@@ -85,50 +85,51 @@ func buildServerAndRun(done <-chan struct{}, printf Printf, proxyAddr, phpFpmAdd
 	return nil
 }
 
-func ReadFullRequest(r io.Reader) ([]fcgiprotocol.Record, error) {
-	reccords := make([]fcgiprotocol.Record, 0, 3)
+func ReadFullRequest(printf Printf) func(r io.Reader) ([]fcgiprotocol.Record, error) {
+	return func(r io.Reader) ([]fcgiprotocol.Record, error) {
+		reccords := make([]fcgiprotocol.Record, 0, 3)
 
-	// recive untill empty FCGI_STDIN or EOF ?
-	for {
-		rec := fcgiprotocol.Record{}
-		err := rec.Read(r)
-		if err != nil && err != io.EOF {
-			return nil, err
+		// recive untill empty FCGI_STDIN or EOF ?
+		for {
+			printf("first read loop\n")
+			rec := fcgiprotocol.Record{}
+			err := rec.Read(r)
+			if err != nil && err != io.EOF {
+				return nil, err
+			}
+			reccords = append(reccords, rec)
+			if err == io.EOF {
+				break
+			}
+			if rec.Header.Type == fcgiprotocol.FCGI_PARAMS && len(rec.Content()) == 0 {
+				break
+			}
 		}
-		reccords = append(reccords, rec)
-		if err == io.EOF {
-			break
+
+		req, err := fcgiprotocol.DecodeRequest(reccords)
+		if err != nil {
+			return reccords, fmt.Errorf("cannot decode request : %w", err)
 		}
-		if rec.Header.Type == fcgiprotocol.FCGI_PARAMS && len(rec.Content()) == 0 {
-			break
+		lengthStr, _ := req.Env["CONTENT_LENGTH"]
+		length, _ := strconv.Atoi(lengthStr)
+		read := 0
+
+		for read < length {
+			printf("second read loop r %d : l %d \n", read, length)
+			rec := fcgiprotocol.Record{}
+			err := rec.Read(r)
+			if err != nil {
+				return nil, err
+			}
+			reccords = append(reccords, rec)
+
+			if rec.Header.Type == fcgiprotocol.FCGI_STDIN {
+				read += len(rec.Content())
+			}
 		}
+
+		return reccords, nil
 	}
-
-	req, err := fcgiprotocol.DecodeRequest(reccords)
-	if err != nil {
-		return reccords, fmt.Errorf("cannot decode request : %w", err)
-	}
-	lengthStr, _ := req.Env["CONTENT_LENGTH"]
-	length, _ := strconv.Atoi(lengthStr)
-	read := 0
-
-	for read <= length {
-		rec := fcgiprotocol.Record{}
-		err := rec.Read(r)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		reccords = append(reccords, rec)
-		if err == io.EOF {
-			break
-		}
-
-		if rec.Header.Type == fcgiprotocol.FCGI_STDIN {
-			read += len(rec.Content())
-		}
-	}
-
-	return reccords, nil
 }
 
 func writeRecords(w io.Writer, recs []fcgiprotocol.Record) error {
