@@ -21,7 +21,7 @@ func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
 }
 func buildPair(w io.Writer, pairs map[string]string) error {
 	b := make([]byte, 8)
-	keys := make([]string, len(pairs))
+	keys := make([]string, 0, len(pairs))
 	for k := range pairs {
 		keys = append(keys, k)
 	}
