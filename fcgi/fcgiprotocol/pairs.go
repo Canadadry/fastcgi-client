@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sort"
 )
 
 func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
@@ -20,8 +21,13 @@ func MustBuildPairWithPadding(pairs map[string]string, padding int) []byte {
 }
 func buildPair(w io.Writer, pairs map[string]string) error {
 	b := make([]byte, 8)
-
-	for k, v := range pairs {
+	keys := make([]string, len(pairs))
+	for k := range pairs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := pairs[k]
 		n := encodeSize(b, uint32(len(k)))
 		n += encodeSize(b[n:], uint32(len(v)))
 		if _, err := w.Write(b[:n]); err != nil {
