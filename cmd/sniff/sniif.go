@@ -43,8 +43,8 @@ func Run(args []string) error {
 	return buildServerAndRun(
 		context.Background().Done(),
 		func(msg string, args ...interface{}) { l.Printf(msg, args...) },
-		phpFpmAddr,
 		proxyAddr,
+		phpFpmAddr,
 		!dontDecodeRequest,
 	)
 }

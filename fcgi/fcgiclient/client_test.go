@@ -132,14 +132,14 @@ func TestDo(t *testing.T) {
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
 					"X-Powered-By":  "PHP/8.3.7",
-					"X-Request-Uri": "/",
+					"X-Request-Uri": "/?status_code=403",
 					"Status":        "403 Forbidden",
 					"X-Status-Code": "403",
 					"Status-Code":   "403",
 				},
 				Stdout: strings.Join([]string{
 					"<h1>Requested URL:</h1>",
-					"<p>/</p>",
+					"<p>/?status_code=403</p>",
 					"<h1>Request Method:</h1>",
 					"<p>GET</p>",
 					"<h1>Headers:</h1>",

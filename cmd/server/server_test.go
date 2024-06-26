@@ -67,7 +67,7 @@ func TestDo(t *testing.T) {
 				StatusCode: http.StatusCreated,
 				Body: strings.Join([]string{
 					"<h1>Requested URL:</h1>",
-					"<p>/test</p>",
+					"<p>/test?status_code=201</p>",
 					"<h1>Request Method:</h1>",
 					"<p>POST</p>",
 					"<h1>Headers:</h1>",
@@ -84,7 +84,7 @@ func TestDo(t *testing.T) {
 				Header: map[string]string{
 					"Content-type":  "text/html; charset=UTF-8",
 					"X-Powered-By":  "PHP/8.3.7",
-					"X-Request-Uri": "/test",
+					"X-Request-Uri": "/test?status_code=201",
 					"Status":        "201 Created",
 					"X-Status-Code": "201",
 					"Status-Code":   "201",

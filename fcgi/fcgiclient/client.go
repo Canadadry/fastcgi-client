@@ -42,7 +42,7 @@ func Do(rw io.ReadWriter, req Request) (Response, error) {
 		"SERVER_SOFTWARE":   "go / fcgiclient ",
 		"DOCUMENT_ROOT":     req.DocumentRoot,
 		"QUERY_STRING":      req.Url.RawQuery,
-		"REQUEST_URI":       req.Url.Path,
+		"REQUEST_URI":       req.Url.RequestURI(),
 	}
 
 	for header, values := range req.Header {
