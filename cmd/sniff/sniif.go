@@ -161,9 +161,15 @@ func ReadFullResponse(r io.Reader) ([]fcgiprotocol.Record, error) {
 			break
 		}
 		if rec.Header.Type == fcgiprotocol.FCGI_END_REQUEST {
+			hideAllEndRequestBytesButStatusCode(reccords)
 			break
 		}
 	}
 
 	return reccords, nil
+}
+
+func hideAllEndRequestBytesButStatusCode(reccords []fcgiprotocol.Record) {
+	rec := reccords[len(reccords)-1]
+	reccords[len(reccords)-1].Buf = []byte{0, 0, 0, 0, rec.Buf[4], 0, 0, 0}
 }
