@@ -154,7 +154,7 @@ func TestDo(t *testing.T) {
 						`{"login":admin","password":"azertyu"}`,
 						"</pre>",
 					}, "\n"))),
-					buildRecord(fcgiprotocol.FCGI_END_REQUEST, []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x61, 0x74, 0x69}),
+					buildRecord(fcgiprotocol.FCGI_END_REQUEST, []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 				}),
 				"writing back response",
 				"",
