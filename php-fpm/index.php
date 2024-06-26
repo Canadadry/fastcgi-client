@@ -22,8 +22,6 @@ echo "<h1>Headers:</h1>\n";
 echo "<pre>\n";
 if (array_key_exists("REMOTE_ADDR", $_SERVER)) {
 	echo "REMOTE_ADDR: " . $_SERVER["REMOTE_ADDR"] . "\n";
-} else {
-	echo "REMOTE_ADDR:\n";
 }
 $h = getallheaders();
 $hKeys = array_keys($h);
