@@ -72,6 +72,7 @@ func TestDo(t *testing.T) {
 					"<p>POST</p>",
 					"<h1>Headers:</h1>",
 					"<pre>",
+					"REMOTE_ADDR: 127.0.0.1",
 					"Content-Length: 12",
 					"Content-Type: text/plain; charset=utf-8",
 					"X-Test: coucou",
@@ -106,6 +107,7 @@ func TestDo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not create request: %v", err)
 			}
+			req.RemoteAddr = "127.0.0.1"
 			for key, value := range tt.In.Header {
 				req.Header.Add(key, value)
 			}

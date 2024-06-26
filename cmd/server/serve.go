@@ -77,8 +77,11 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 			Url:          r.URL,
 			Body:         string(rBody),
 			Header:       map[string]string{},
-			Env:          map[string]string{},
+			Env: map[string]string{
+				"REMOTE_ADDR": r.RemoteAddr,
+			},
 		}
+		fmt.Println("remote addr", r.RemoteAddr)
 
 		for name, values := range r.Header {
 			req.Header[name] = values[0]
