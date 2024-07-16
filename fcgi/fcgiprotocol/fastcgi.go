@@ -14,16 +14,16 @@ var pad [MaxPad]byte
 
 type recordWriter func(recType uint8, reqId uint16, content []byte) error
 
-func Do(rwc io.ReadWriter, env map[string]string, reqStr string) ([]byte, []byte, error) {
+func Do(rwc io.ReadWriter, env map[string]string, reqStr string) (RawResponse, error) {
 	var reqId uint16 = 1
 	buf := bufio.NewWriterSize(rwc, MaxWrite)
 	err := WriteRequest(StreamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cant write req : %w", err)
+		return RawResponse{}, fmt.Errorf("cant write req : %w", err)
 	}
 	err = buf.Flush()
 	if err != nil {
-		return nil, nil, fmt.Errorf("while flushing, cant write req %w", err)
+		return RawResponse{}, fmt.Errorf("while flushing, cant write req %w", err)
 	}
 
 	return readResponse(rwc)
@@ -55,8 +55,15 @@ func WriteRequest(w recordWriter, reqId uint16, env map[string]string, body stri
 	return nil
 }
 
-func readResponse(r io.Reader) ([]byte, []byte, error) {
-	var stdout, stderr []byte
+type RawResponse struct {
+	Stdout         []byte
+	Stderr         []byte
+	AppStatus      uint32
+	ProtocolStatus uint8
+}
+
+func readResponse(r io.Reader) (RawResponse, error) {
+	rr := RawResponse{}
 	rec := &Record{}
 	for {
 		err := rec.Read(r)
@@ -64,21 +71,24 @@ func readResponse(r io.Reader) ([]byte, []byte, error) {
 			if err == io.EOF {
 				break
 			}
-			return nil, nil, fmt.Errorf("cannot read response : %w", err)
+			return rr, fmt.Errorf("cannot read response : %w", err)
 		}
 		switch {
 		case rec.Header.Type == FCGI_STDOUT:
-			stdout = append(stdout, rec.Content()...)
+			rr.Stdout = append(rr.Stdout, rec.Content()...)
 		case rec.Header.Type == FCGI_STDERR:
-			stderr = append(stderr, rec.Content()...)
+			rr.Stderr = append(rr.Stderr, rec.Content()...)
 		case rec.Header.Type == FCGI_END_REQUEST:
+			endReq := rec.Content()
+			rr.AppStatus = binary.BigEndian.Uint32(endReq[0:4])
+			rr.ProtocolStatus = endReq[4]
 			break
 		default:
 			break
 		}
 	}
 
-	return stdout, stderr, nil
+	return rr, nil
 }
 
 func writeBeginRequest(w recordWriter, reqId uint16) error {

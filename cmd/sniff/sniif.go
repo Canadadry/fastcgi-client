@@ -171,5 +171,12 @@ func ReadFullResponse(r io.Reader) ([]fcgiprotocol.Record, error) {
 
 func hideAllEndRequestBytesButStatusCode(reccords []fcgiprotocol.Record) {
 	rec := reccords[len(reccords)-1]
-	reccords[len(reccords)-1].Buf = []byte{0, 0, 0, 0, rec.Buf[4], 0, 0, 0}
+	reccords[len(reccords)-1].Buf = []byte{
+		rec.Buf[0],
+		rec.Buf[1],
+		rec.Buf[2],
+		rec.Buf[3],
+		rec.Buf[4],
+		0, 0, 0,
+	}
 }

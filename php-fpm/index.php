@@ -1,6 +1,15 @@
 <?php
 $queries = [];
 parse_str($_SERVER["QUERY_STRING"], $queries);
+
+if (array_key_exists("throw", $queries)) {
+	throw new \Exception("throw exception",1234);
+}
+
+if (array_key_exists("die", $queries)) {
+	die(1);
+}
+
 if (array_key_exists("status_code", $queries)) {
 	http_response_code(intval($queries["status_code"]));
 	header("Status-Code:" . $queries["status_code"]);
@@ -36,4 +45,6 @@ echo "<h1>Body:</h1>\n";
 echo "<pre>\n";
 echo file_get_contents("php://input");
 echo "</pre>";
+
+
 ?>

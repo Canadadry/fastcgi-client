@@ -21,10 +21,12 @@ type Request struct {
 }
 
 type Response struct {
-	StatusCode int
-	Header     map[string]string
-	Stdout     string
-	Stderr     string
+	AppStatusCode  uint32
+	ProtocolStatus uint8
+	StatusCode     int
+	Header         map[string]string
+	Stdout         string
+	Stderr         string
 }
 
 func Do(rw io.ReadWriter, req Request) (Response, error) {
@@ -57,21 +59,23 @@ func Do(rw io.ReadWriter, req Request) (Response, error) {
 		env[name] = value
 	}
 
-	content, stderr, err := fcgiprotocol.Do(rw, env, req.Body)
+	rawRsp, err := fcgiprotocol.Do(rw, env, req.Body)
 
 	if err != nil {
-		return Response{}, fmt.Errorf("cannot send fcgi request: %w : stderr '%s'", err, string(stderr))
+		return Response{}, fmt.Errorf("cannot send fcgi request: %w : stderr '%s'", err, string(rawRsp.Stderr))
 	}
 
-	rsp, err := fcgiprotocol.ParseResponse(fmt.Sprintf("%s", content))
+	rsp, err := fcgiprotocol.ParseResponse(fmt.Sprintf("%s", rawRsp.Stdout))
 	if err != nil {
-		return Response{}, fmt.Errorf("cannot read fcgi reqponse: %w : stderr '%s'", err, string(stderr))
+		return Response{}, fmt.Errorf("cannot read fcgi reqponse: %w : stderr '%s'", err, string(rawRsp.Stderr))
 	}
 
 	return Response{
-		StatusCode: rsp.StatusCode,
-		Header:     rsp.Headers,
-		Stdout:     rsp.Stdout,
-		Stderr:     string(stderr),
+		StatusCode:     rsp.StatusCode,
+		AppStatusCode:  rawRsp.AppStatus,
+		ProtocolStatus: rawRsp.ProtocolStatus,
+		Header:         rsp.Headers,
+		Stdout:         rsp.Stdout,
+		Stderr:         string(rawRsp.Stderr),
 	}, nil
 }

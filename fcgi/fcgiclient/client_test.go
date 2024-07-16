@@ -284,6 +284,55 @@ func TestDo(t *testing.T) {
 			Expected: Response{},
 			Error:    "cannot send fcgi request: cant write req : build pair len exceed MaxPairLen of (65535) : stderr ''",
 		},
+		"exception": {
+			In: Request{
+				DocumentRoot: dir,
+				Method:       "GET",
+				Url:          MustUrl(t, "/?throw=true"),
+				Body:         "",
+				Index:        "index.php",
+				Env:          map[string]string{},
+				Header:       map[string]string{},
+			},
+			Expected: Response{
+				StatusCode: 200,
+				Header: map[string]string{
+					"Content-type": "text/html; charset=UTF-8",
+					"X-Powered-By": "PHP/8.3.7",
+				},
+				Stdout: strings.Join([]string{
+					"<br />",
+					"<b>Fatal error</b>:  Uncaught Exception: throw exception in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php:6",
+					"Stack trace:\n#0 {main}",
+					"  thrown in <b>/Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php</b> on line <b>6</b><br />\n",
+				}, "\n"),
+				Stderr: strings.Join([]string{
+					"PHP message: PHP Fatal error:  Uncaught Exception: throw exception in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php:6",
+					"Stack trace:\n#0 {main}",
+					"  thrown in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php on line 6",
+				}, "\n"),
+			},
+		},
+		"die": {
+			In: Request{
+				DocumentRoot: dir,
+				Method:       "GET",
+				Url:          MustUrl(t, "/?die=true"),
+				Body:         "",
+				Index:        "index.php",
+				Env:          map[string]string{},
+				Header:       map[string]string{},
+			},
+			Expected: Response{
+				StatusCode: 200,
+				Header: map[string]string{
+					"Content-type": "text/html; charset=UTF-8",
+					"X-Powered-By": "PHP/8.3.7",
+				},
+				Stdout: "",
+				Stderr: "",
+			},
+		},
 	}
 
 	for name, tt := range tests {

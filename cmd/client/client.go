@@ -72,6 +72,6 @@ func Run(args []string) error {
 	defer conn.Close()
 
 	resp, err := fcgiclient.Do(conn, req)
-	fmt.Println(resp)
+	fmt.Printf("%#v\n", resp)
 	return err
 }
