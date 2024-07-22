@@ -14,9 +14,9 @@ var pad [MaxPad]byte
 
 type recordWriter func(recType uint8, reqId uint16, content []byte) error
 
-func Do(rwc io.ReadWriter, reqId uint16, env map[string]string, reqStr string) (RawResponse, error) {
+func Do(rwc io.ReadWriter, reqId uint16, keepConnection bool, env map[string]string, reqStr string) (RawResponse, error) {
 	buf := bufio.NewWriterSize(rwc, MaxWrite)
-	err := WriteRequest(StreamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
+	err := WriteRequest(StreamRecordWriter(buf, MaxWrite), reqId, keepConnection, env, reqStr)
 	if err != nil {
 		return RawResponse{}, fmt.Errorf("cant write req : %w", err)
 	}
@@ -28,7 +28,7 @@ func Do(rwc io.ReadWriter, reqId uint16, env map[string]string, reqStr string) (
 	return readResponse(rwc)
 }
 
-func WriteRequest(w recordWriter, reqId uint16, env map[string]string, body string) error {
+func WriteRequest(w recordWriter, reqId uint16, keepConnection bool, env map[string]string, body string) error {
 	buf := &bytes.Buffer{}
 	err := BuildPair(buf, env)
 	if err != nil {
@@ -39,7 +39,7 @@ func WriteRequest(w recordWriter, reqId uint16, env map[string]string, body stri
 		return fmt.Errorf("build pair len exceed MaxPairLen of (%d)", MaxPairLen)
 	}
 
-	err = writeBeginRequest(w, reqId)
+	err = writeBeginRequest(w, reqId, keepConnection)
 	if err != nil {
 		return fmt.Errorf("cant write begin req %w", err)
 	}
@@ -90,9 +90,12 @@ func readResponse(r io.Reader) (RawResponse, error) {
 	return rr, nil
 }
 
-func writeBeginRequest(w recordWriter, reqId uint16) error {
+func writeBeginRequest(w recordWriter, reqId uint16, keepConnection bool) error {
 	role := uint16(FCGI_RESPONDER)
 	flags := uint8(0)
+	if keepConnection {
+		flags = FCGI_KEEP_CONN
+	}
 	b := [8]byte{byte(role >> 8), byte(role), flags}
 	return w(FCGI_BEGIN_REQUEST, reqId, b[:])
 }

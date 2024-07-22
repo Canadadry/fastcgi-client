@@ -12,6 +12,7 @@ func TestReadFullRequest(t *testing.T) {
 	err := fcgiprotocol.WriteRequest(
 		fcgiprotocol.RawRecordWriter(&buf),
 		0,
+		false,
 		map[string]string{"CONTENT_LENGTH": "4", "test": "test"},
 		"body",
 	)

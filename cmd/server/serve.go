@@ -32,6 +32,7 @@ func Run(args []string) error {
 	fs.StringVar(&listen, "listen", listen, "The webserver bind address to listen to.")
 	fs.StringVar(&srv.FCGIHost, "server", srv.FCGIHost, "The FastCGI Server to listen to")
 	fs.StringVar(&srv.Index, "index", srv.Index, "The default script to call when path cannot be served by existing file.")
+	fs.BoolVar(&srv.KeepConnection, "keep-connection", srv.KeepConnection, "keep connection between server and php fpm")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -48,10 +49,11 @@ func Run(args []string) error {
 }
 
 type Server struct {
-	DocumentRoot string
-	Index        string
-	FCGIHost     string
-	AutoIncID    *autoinc.AutoInc[uint16]
+	DocumentRoot   string
+	Index          string
+	FCGIHost       string
+	AutoIncID      *autoinc.AutoInc[uint16]
+	KeepConnection bool
 }
 
 func handle(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
@@ -65,7 +67,36 @@ func handle(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, er
 	}
 }
 
+type ReadWriteCloser struct {
+	Reader io.Reader
+	Writer io.Writer
+	Closer io.Closer
+}
+
+func (rwc *ReadWriteCloser) Read(p []byte) (n int, err error) {
+	return rwc.Reader.Read(p)
+}
+func (rwc *ReadWriteCloser) Write(p []byte) (n int, err error) {
+	return rwc.Writer.Write(p)
+}
+func (rwc *ReadWriteCloser) Close() error {
+	return rwc.Closer.Close()
+}
+
 func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	dial := func() (io.ReadWriteCloser, error) {
+		return net.Dial("tcp", srv.FCGIHost)
+	}
+	if srv.KeepConnection {
+		conn, err := dial()
+		dial = func() (io.ReadWriteCloser, error) {
+			return &ReadWriteCloser{
+				Reader: conn,
+				Writer: conn,
+				Closer: io.NopCloser(conn),
+			}, err
+		}
+	}
 	return func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		defer r.Body.Close()
 		rBody, err := io.ReadAll(r.Body)
@@ -74,13 +105,14 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 		}
 
 		req := fcgiclient.Request{
-			ID:           srv.AutoIncID.Get(),
-			DocumentRoot: srv.DocumentRoot,
-			Index:        srv.Index,
-			Method:       r.Method,
-			Url:          r.URL,
-			Body:         string(rBody),
-			Header:       map[string]string{},
+			ID:             srv.AutoIncID.Get(),
+			KeepConnection: srv.KeepConnection,
+			DocumentRoot:   srv.DocumentRoot,
+			Index:          srv.Index,
+			Method:         r.Method,
+			Url:            r.URL,
+			Body:           string(rBody),
+			Header:         map[string]string{},
 			Env: map[string]string{
 				"REMOTE_ADDR": r.RemoteAddr,
 			},
@@ -91,7 +123,7 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 			req.Header[name] = values[0]
 		}
 
-		conn, err := net.Dial("tcp", srv.FCGIHost)
+		conn, err := dial()
 		if err != nil {
 			return nil, fmt.Errorf("cannot dial php server : %w", err)
 		}
