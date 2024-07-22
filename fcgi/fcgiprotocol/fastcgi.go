@@ -14,8 +14,7 @@ var pad [MaxPad]byte
 
 type recordWriter func(recType uint8, reqId uint16, content []byte) error
 
-func Do(rwc io.ReadWriter, env map[string]string, reqStr string) (RawResponse, error) {
-	var reqId uint16 = 1
+func Do(rwc io.ReadWriter, reqId uint16, env map[string]string, reqStr string) (RawResponse, error) {
 	buf := bufio.NewWriterSize(rwc, MaxWrite)
 	err := WriteRequest(StreamRecordWriter(buf, MaxWrite), reqId, env, reqStr)
 	if err != nil {

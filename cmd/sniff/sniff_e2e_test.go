@@ -65,6 +65,7 @@ func TestDo(t *testing.T) {
 	}{
 		"post json with body": {
 			In: fcgiclient.Request{
+				ID:           1,
 				DocumentRoot: dir,
 				Method:       "POST",
 				Url:          MustUrl(t, "/api/auth-tokens?status_code=201"),

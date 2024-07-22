@@ -342,6 +342,7 @@ func TestDo(t *testing.T) {
 				t.Fatalf("cannot dial php server : %v", err)
 			}
 			defer conn.Close()
+			tt.In.ID = 1
 			result, err := Do(conn, tt.In)
 			testError(t, err, tt.Error)
 			if !reflect.DeepEqual(tt.Expected, result) {

@@ -4,6 +4,7 @@ package server
 
 import (
 	"app/fcgi/fcgiclient"
+	"app/pkg/autoinc"
 	"app/pkg/http/handler"
 	"app/pkg/http/middleware"
 	"flag"
@@ -24,6 +25,7 @@ func Run(args []string) error {
 		DocumentRoot: cwd,
 		FCGIHost:     "127.0.0.1:9000",
 		Index:        "index.php",
+		AutoIncID:    &autoinc.AutoInc[uint16]{},
 	}
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
 	fs.StringVar(&srv.DocumentRoot, "document-root", srv.DocumentRoot, "The document root to serve files from")
@@ -49,6 +51,7 @@ type Server struct {
 	DocumentRoot string
 	Index        string
 	FCGIHost     string
+	AutoIncID    *autoinc.AutoInc[uint16]
 }
 
 func handle(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
@@ -71,6 +74,7 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 		}
 
 		req := fcgiclient.Request{
+			ID:           srv.AutoIncID.Get(),
 			DocumentRoot: srv.DocumentRoot,
 			Index:        srv.Index,
 			Method:       r.Method,

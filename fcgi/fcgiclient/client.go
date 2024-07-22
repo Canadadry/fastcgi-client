@@ -11,6 +11,7 @@ import (
 )
 
 type Request struct {
+	ID           uint16
 	Method       string
 	Url          *url.URL
 	Body         string
@@ -59,7 +60,7 @@ func Do(rw io.ReadWriter, req Request) (Response, error) {
 		env[name] = value
 	}
 
-	rawRsp, err := fcgiprotocol.Do(rw, env, req.Body)
+	rawRsp, err := fcgiprotocol.Do(rw, req.ID, env, req.Body)
 
 	if err != nil {
 		return Response{}, fmt.Errorf("cannot send fcgi request: %w : stderr '%s'", err, string(rawRsp.Stderr))

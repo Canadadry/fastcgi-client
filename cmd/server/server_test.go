@@ -1,6 +1,7 @@
 package server
 
 import (
+	"app/pkg/autoinc"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -99,6 +100,7 @@ func TestDo(t *testing.T) {
 		DocumentRoot: dir,
 		Index:        "index.php",
 		FCGIHost:     "127.0.0.1:9000",
+		AutoIncID:    &autoinc.AutoInc[uint16]{},
 	})
 
 	for name, tt := range tests {

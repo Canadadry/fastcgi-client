@@ -25,6 +25,7 @@ func Run(args []string) error {
 	env := ""
 	header := "{}"
 	help := false
+	ID := 1
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
 	fs.StringVar(&host, "host", host, "php-fmp hostname")
 	fs.StringVar(&req.Method, "method", req.Method, "request method")
@@ -34,6 +35,7 @@ func Run(args []string) error {
 	fs.StringVar(&req.Body, "body", req.Body, "request body")
 	fs.StringVar(&env, "env", env, "request env as json")
 	fs.StringVar(&header, "header", header, "request header as json")
+	fs.IntVar(&ID, "id", ID, "request ID")
 	fs.BoolVar(&help, "help", help, "print cmd help")
 	err := fs.Parse(args)
 	if err != nil {
@@ -43,6 +45,7 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
+	req.ID = uint16(ID)
 	if env != "" {
 		f, err := os.Open(env)
 		if err != nil {
