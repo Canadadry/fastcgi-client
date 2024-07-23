@@ -302,14 +302,14 @@ func TestDo(t *testing.T) {
 				},
 				Stdout: strings.Join([]string{
 					"<br />",
-					"<b>Fatal error</b>:  Uncaught Exception: throw exception in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php:6",
+					"<b>Fatal error</b>:  Uncaught Exception: throw exception in " + dir + "/index.php:6",
 					"Stack trace:\n#0 {main}",
-					"  thrown in <b>/Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php</b> on line <b>6</b><br />\n",
+					"  thrown in <b>" + dir + "/index.php</b> on line <b>6</b><br />\n",
 				}, "\n"),
 				Stderr: strings.Join([]string{
-					"PHP message: PHP Fatal error:  Uncaught Exception: throw exception in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php:6",
+					"PHP message: PHP Fatal error:  Uncaught Exception: throw exception in " + dir + "/index.php:6",
 					"Stack trace:\n#0 {main}",
-					"  thrown in /Users/jerome/Prog/EVCK/tool/fastcgi-serve/php-fpm/index.php on line 6",
+					"  thrown in " + dir + "/index.php on line 6",
 				}, "\n"),
 			},
 		},
