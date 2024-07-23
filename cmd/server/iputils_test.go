@@ -11,10 +11,10 @@ func TestSplitIPAndPort(t *testing.T) {
 		expectedPort string
 	}{
 		"valid ipv4:port":       {"192.168.1.1:8080", "192.168.1.1", "8080"},
-		"valid ipv6:port":       {"2001:db8::1:8080", "2001:db8::1", "8080"},
+		"valid ipv6:port":       {"[2001:db8::1]:8080", "2001:db8::1", "8080"},
 		"valid ipv6":            {"2001:db8::1", "2001:db8::1", ""},
 		"valid ipv4":            {"127.0.0.1", "127.0.0.1", ""},
-		"valid ipv6:empty port": {"2001:db8::1:", "2001:db8::1", ""},
+		"valid ipv6:empty port": {"[2001:db8::1]:", "2001:db8::1", ""},
 		"valid ipv4:empty port": {"127.0.0.1:", "127.0.0.1", ""},
 		"valid :port":           {":8080", "", "8080"},
 		"invalid ip":            {"192.168.1..1:", "", ""},
