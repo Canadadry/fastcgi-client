@@ -3,11 +3,13 @@ package client
 import (
 	"app/fcgi/fcgiclient"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
+	"strings"
 )
 
 const Action = "client"
@@ -32,8 +34,8 @@ func Run(args []string) error {
 	fs.StringVar(&req.Index, "index", req.Index, "request index")
 	fs.StringVar(&req.DocumentRoot, "document-root", req.DocumentRoot, "request document root")
 	fs.StringVar(&req.Body, "body", req.Body, "request body")
-	fs.StringVar(&env, "env", env, "request env as json")
-	fs.StringVar(&header, "header", header, "request header as json")
+	fs.StringVar(&env, "env", env, "request env as json or filename to env.json")
+	fs.StringVar(&header, "header", header, "request header as json or filename to header.json")
 	fs.BoolVar(&help, "help", help, "print cmd help")
 	err := fs.Parse(args)
 	if err != nil {
@@ -43,21 +45,14 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return nil
 	}
-	if env != "" {
-		f, err := os.Open(env)
-		if err != nil {
-			return fmt.Errorf("cannot open env file : %w", err)
-		}
-		defer f.Close()
-		err = json.NewDecoder(f).Decode(&req.Env)
-		if err != nil {
-			return fmt.Errorf("cannot read env json data : %w", err)
-		}
+	err = DecodeOrLoad(env, &req.Env)
+	if err != nil {
+		return fmt.Errorf("cannot read env data : %w", err)
 	}
 
-	err = json.Unmarshal([]byte(header), &req.Header)
+	err = DecodeOrLoad(header, &req.Header)
 	if err != nil {
-		return fmt.Errorf("cannot read header json data : %w", err)
+		return fmt.Errorf("cannot read env data : %w", err)
 	}
 
 	req.Url, err = url.Parse(rawUrl)
@@ -74,4 +69,27 @@ func Run(args []string) error {
 	resp, err := fcgiclient.Do(conn, req)
 	fmt.Printf("%#v\n", resp)
 	return err
+}
+
+func DecodeOrLoad(filename string, data interface{}) error {
+	if filename == "" {
+		return nil
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		errJson := json.NewDecoder(strings.NewReader(filename)).Decode(data)
+		if errJson != nil {
+			return fmt.Errorf(
+				"cannot open file %s nor decoded it as json value : %w",
+				filename,
+				errors.Join(err, errJson),
+			)
+		}
+	}
+	defer f.Close()
+	err = json.NewDecoder(f).Decode(data)
+	if err != nil {
+		return fmt.Errorf("cannot read env json data : %w", err)
+	}
+	return nil
 }
