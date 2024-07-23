@@ -1,5 +1,3 @@
-// forked from https://github.com/beberlei/fastcgi-serv
-
 package server
 
 import (
@@ -24,10 +22,16 @@ func Run(args []string) error {
 		DocumentRoot: cwd,
 		FCGIHost:     "127.0.0.1:9000",
 		Index:        "index.php",
+		IP:           "127.0.0.1",
+		Name:         "localhost",
+		Port:         "443",
 	}
 	fs := flag.NewFlagSet(Action, flag.ContinueOnError)
 	fs.StringVar(&srv.DocumentRoot, "document-root", srv.DocumentRoot, "The document root to serve files from")
 	fs.StringVar(&listen, "listen", listen, "The webserver bind address to listen to.")
+	fs.StringVar(&srv.IP, "srv-ip", srv.IP, "The webserver ip passed to php-fpm.")
+	fs.StringVar(&srv.Name, "srv-name", srv.Name, "The webserver name passed to php-fpm.")
+	fs.StringVar(&srv.Port, "srv-port", srv.Port, "The webserver port passed to php-fpm.")
 	fs.StringVar(&srv.FCGIHost, "server", srv.FCGIHost, "The FastCGI Server to listen to")
 	fs.StringVar(&srv.Index, "index", srv.Index, "The default script to call when path cannot be served by existing file.")
 
@@ -49,6 +53,9 @@ type Server struct {
 	DocumentRoot string
 	Index        string
 	FCGIHost     string
+	IP           string
+	Name         string
+	Port         string
 }
 
 func handle(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byte, error) {
@@ -70,6 +77,8 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 			return nil, fmt.Errorf("cannot read request body: %v", err)
 		}
 
+		remoteAddr, remotePort := splitIPAndPort(r.RemoteAddr)
+
 		req := fcgiclient.Request{
 			DocumentRoot: srv.DocumentRoot,
 			Index:        srv.Index,
@@ -78,10 +87,14 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 			Body:         string(rBody),
 			Header:       map[string]string{},
 			Env: map[string]string{
-				"REMOTE_ADDR": r.RemoteAddr,
+				"REMOTE_ADDR": remoteAddr,
+				"REMOTE_HOST": "",
+				"REMOTE_PORT": remotePort,
+				"SERVER_ADDR": srv.IP,
+				"SERVER_NAME": srv.Name,
+				"SERVER_PORT": srv.Port,
 			},
 		}
-		fmt.Println("remote addr", r.RemoteAddr)
 
 		for name, values := range r.Header {
 			req.Header[name] = values[0]
