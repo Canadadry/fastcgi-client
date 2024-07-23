@@ -88,7 +88,6 @@ func fcgiHandler(srv Server) func(w http.ResponseWriter, r *http.Request) ([]byt
 			Header:       map[string]string{},
 			Env: map[string]string{
 				"REMOTE_ADDR": remoteAddr,
-				"REMOTE_HOST": "",
 				"REMOTE_PORT": remotePort,
 				"SERVER_ADDR": srv.IP,
 				"SERVER_NAME": srv.Name,

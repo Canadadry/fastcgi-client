@@ -73,6 +73,10 @@ func TestDo(t *testing.T) {
 					"<h1>Headers:</h1>",
 					"<pre>",
 					"REMOTE_ADDR: 127.0.0.1",
+					"REMOTE_PORT: ",
+					"SERVER_ADDR: 1.2.3.4",
+					"SERVER_NAME: localhost",
+					"SERVER_PORT: 443",
 					"Content-Length: 12",
 					"Content-Type: text/plain; charset=utf-8",
 					"X-Test: coucou",
@@ -99,6 +103,9 @@ func TestDo(t *testing.T) {
 		DocumentRoot: dir,
 		Index:        "index.php",
 		FCGIHost:     "127.0.0.1:9000",
+		IP:           "1.2.3.4",
+		Name:         "localhost",
+		Port:         "443",
 	})
 
 	for name, tt := range tests {

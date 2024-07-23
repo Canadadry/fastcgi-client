@@ -29,9 +29,13 @@ echo "<p>" . $_SERVER["REQUEST_METHOD"] . "</p>\n";
 // Display the headers
 echo "<h1>Headers:</h1>\n";
 echo "<pre>\n";
-if (array_key_exists("REMOTE_ADDR", $_SERVER)) {
-	echo "REMOTE_ADDR: " . $_SERVER["REMOTE_ADDR"] . "\n";
+$serverKeys =["REMOTE_ADDR","REMOTE_PORT","SERVER_ADDR","SERVER_NAME","SERVER_PORT"];
+foreach($serverKeys as $key){
+	if (array_key_exists($key, $_SERVER)) {
+		echo "$key: " . $_SERVER[$key] . "\n";
+	}
 }
+
 $h = getallheaders();
 $hKeys = array_keys($h);
 asort($hKeys);
